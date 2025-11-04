@@ -49,3 +49,4 @@ Endpoints used (relative to `NEXT_PUBLIC_API_URL`):
 - `POST /auth/logout` to end the session
 
 If the refresh endpoint also returns a new `refreshToken`, it will be persisted and the 24-hour window is reset.
+# staff-site-kel1
