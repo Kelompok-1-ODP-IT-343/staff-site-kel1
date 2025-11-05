@@ -61,7 +61,7 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
           # Uncomment kalau perlu saat build (bukan runtime):
-          # build-args: |
-          #   NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
+          build-args: |
+           NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
           # Multi-arch (opsional, lebih lama build):
           # platforms: linux/amd64,linux/arm64
