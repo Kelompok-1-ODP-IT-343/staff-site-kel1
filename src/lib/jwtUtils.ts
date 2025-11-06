@@ -1,5 +1,5 @@
 interface JWTPayload {
-  role: 'DEVELOPER' | 'ADMIN' | 'USER';
+  role:  'APPROVER' ;
   userId: number;
   sub: string;
   iat: number;

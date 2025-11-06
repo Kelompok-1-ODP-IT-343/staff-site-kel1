@@ -2,8 +2,8 @@ import axios, { AxiosHeaders } from "axios";
 
 // Axios instance untuk seluruh request ke API Satu Atap
 const coreApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1",
-  // baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:18080/api/v1",
+  // baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:18080/api/v1",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -184,10 +184,20 @@ export const getUserProfile = async () => {
 // KPR Applications API functions
 export const getKPRApplicationsProgress = async () => {
   try {
-    const response = await coreApi.get("/kpr-applications/developer/progress");
+    const response = await coreApi.get("/kpr-applications/verifikator/progress");
     return response.data;
   } catch (error) {
     console.error("Error fetching KPR applications progress:", error);
+    throw error;
+  }
+};
+
+export const getKPRApprovalHistory = async () => {
+  try {
+    const response = await coreApi.get("/kpr-applications/verifikator/history");
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching KPR approval history:", error);
     throw error;
   }
 };
@@ -204,7 +214,7 @@ export const getKPRApplicationDetail = async (applicationId: string) => {
 
 export const approveKPRApplication = async (applicationId: string, approvalNotes: string) => {
   try {
-    const response = await coreApi.post(`/approval/developer`, {
+    const response = await coreApi.post(`/approval/verifikator`, {
       isApproved: true,
       reason: approvalNotes || "",
       applicationId: parseInt(applicationId)
@@ -218,7 +228,7 @@ export const approveKPRApplication = async (applicationId: string, approvalNotes
 
 export const rejectKPRApplication = async (applicationId: string, rejectionReason: string) => {
   try {
-    const response = await coreApi.post(`/approval/developer`, {
+    const response = await coreApi.post(`/approval/verifikator`, {
       isApproved: false,
       reason: rejectionReason || "",
       applicationId: parseInt(applicationId)

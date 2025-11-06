@@ -1,6 +1,26 @@
 import coreApi from "@/lib/coreApi";
 import { decodeJWT, isTokenExpired } from "@/lib/jwtUtils";
 
+type ApiError = {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+    };
+  };
+};
+
+const extractErrorMessage = (error: unknown, fallback: string): string => {
+  if (typeof error === "object" && error !== null) {
+    const { response } = error as ApiError;
+    const message = response?.data?.message;
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message;
+    }
+  }
+  return fallback;
+};
+
 // Keys used in localStorage
 const LS_KEYS = {
   accessToken: "access_token",
@@ -61,7 +81,7 @@ export function isRefreshExpired(): boolean {
     if (!expiresAtStr) return false; // if not present, don't block refresh but server will decide
     const expiresAt = Number(expiresAtStr);
     return Date.now() > expiresAt;
-  } catch (_) {
+  } catch {
     return true;
   }
 }
@@ -85,6 +105,14 @@ export type AuthSuccess = {
 export type AuthFailure = {
   success: false;
   message: string;
+};
+
+const APPROVER_ROLES = ["APPROVER"] as const;
+
+const isApproverRole = (role: string | undefined | null): boolean => {
+  if (!role) return false;
+  const normalized = role.toUpperCase();
+  return APPROVER_ROLES.some((allowed) => allowed === normalized);
 };
 
 export function getCurrentUser(): AuthSuccess["user"] | null {
@@ -116,22 +144,22 @@ export async function logout(): Promise<LogoutResult> {
   try {
     // Call the logout endpoint
     await coreApi.post(API_ENDPOINTS.LOGOUT);
-    
+
     // Clear local storage
     clearTokens();
-    
+
     return {
-      success: true
+      success: true,
     };
-  } catch (err: any) {
-    console.error('Logout error:', err);
-    
+  } catch (err: unknown) {
+    console.error("Logout error:", err);
+
     // Still clear local storage even if the API call fails
     clearTokens();
-    
+
     return {
       success: false,
-      message: err?.response?.data?.message || "Logout failed"
+      message: extractErrorMessage(err, "Logout failed"),
     };
   }
 }
@@ -170,12 +198,11 @@ export async function loginBlueprint(
       // Store the JWT tokens with a 24h refresh TTL policy
       saveTokens({ accessToken: data.token, refreshToken: data.refreshToken, refreshTtlMs: REFRESH_TTL_MS });
       
-      // Check if the user has the developer role
-      const userRole = decodedToken.role.toLowerCase();
-      if (userRole !== 'developer') {
+      // Check if the user has the approver role
+      if (!isApproverRole(decodedToken.role)) {
         return {
           success: false,
-          message: "Access denied. This portal is only for developers."
+          message: "Access denied. This portal is only for approvers."
         };
       }
 
@@ -194,13 +221,12 @@ export async function loginBlueprint(
       success: false,
       message: message || "Login failed"
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Handle API errors
-    console.error('Login error:', err);
-    const message = err?.response?.data?.message || "Login failed";
-    return { 
-      success: false, 
-      message 
+    console.error("Login error:", err);
+    return {
+      success: false,
+      message: extractErrorMessage(err, "Login failed"),
     };
   }
 }
@@ -235,18 +261,21 @@ export async function initiateLogin(
       }
       // Persist tokens
       saveTokens({ accessToken: data.token, refreshToken: data.refreshToken, refreshTtlMs: REFRESH_TTL_MS });
-      const userRole = (decodedToken.role || '').toLowerCase();
-      if (userRole !== 'developer') {
-        return { success: false, requiresOtp: false, message: 'Access denied. This portal is only for developers.' };
+      if (!isApproverRole(decodedToken.role)) {
+        return { success: false, requiresOtp: false, message: 'Access denied. This portal is only for approvers.' };
       }
       return { success: true, requiresOtp: false };
     }
 
     // Otherwise assume OTP is required
     return { success: true, requiresOtp: true };
-  } catch (err: any) {
-    console.error('Initiate login error:', err);
-    return { success: false, requiresOtp: false, message: err?.response?.data?.message || 'Login failed' };
+  } catch (err: unknown) {
+    console.error("Initiate login error:", err);
+    return {
+      success: false,
+      requiresOtp: false,
+      message: extractErrorMessage(err, "Login failed"),
+    };
   }
 }
 
@@ -276,9 +305,8 @@ export async function verifyOtpLogin(params: { identifier: string; otp: string }
     // Persist tokens
     saveTokens({ accessToken: data.token, refreshToken: data.refreshToken, refreshTtlMs: REFRESH_TTL_MS });
 
-    const userRole = (decodedToken.role || '').toLowerCase();
-    if (userRole !== 'developer') {
-      return { success: false, message: 'Access denied. This portal is only for developers.' };
+    if (!isApproverRole(decodedToken.role)) {
+      return { success: false, message: 'Access denied. This portal is only for approvers.' };
     }
 
     return {
@@ -290,9 +318,12 @@ export async function verifyOtpLogin(params: { identifier: string; otp: string }
         role: decodedToken.role,
       },
     };
-  } catch (err: any) {
-    console.error('Verify OTP error:', err);
-    return { success: false, message: err?.response?.data?.message || 'OTP verification failed' };
+  } catch (err: unknown) {
+    console.error("Verify OTP error:", err);
+    return {
+      success: false,
+      message: extractErrorMessage(err, "OTP verification failed"),
+    };
   }
 }
 
@@ -321,7 +352,10 @@ export async function refreshAccessToken(): Promise<{ success: boolean; accessTo
     // Save new tokens
     saveTokens({ accessToken: data.token, refreshToken: data.refreshToken, refreshTtlMs: REFRESH_TTL_MS });
     return { success: true, accessToken: data.token, refreshToken: data.refreshToken };
-  } catch (err: any) {
-    return { success: false, message: err?.response?.data?.message || 'Failed to refresh token' };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      message: extractErrorMessage(err, "Failed to refresh token"),
+    };
   }
 }

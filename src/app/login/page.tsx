@@ -25,13 +25,25 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
 
+  const getErrorDetails = (err: unknown) => {
+    if (typeof err === 'object' && err !== null) {
+      const { response } = err as {
+        response?: { status?: number; data?: { message?: string } };
+      };
+      const status = typeof response?.status === 'number' ? response.status : undefined;
+      const message = typeof response?.data?.message === 'string' ? response.data.message : undefined;
+      return { status, message };
+    }
+    return { status: undefined, message: undefined };
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     if (!identifier || !password) {
-      setError('Please enter both Developer ID and password');
+      setError('Please enter both Approver ID and password');
       setLoading(false);
       return;
     }
@@ -50,16 +62,17 @@ export default function LoginPage() {
         // Logged in without OTP (fallback behavior)
         router.push('/dashboard');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
-      if (err?.response?.status === 401) {
-        setError('Invalid credentials. Please check your Developer ID and password.');
-      } else if (err?.response?.status === 429) {
+      const { status, message } = getErrorDetails(err);
+      if (status === 401) {
+        setError('Invalid credentials. Please check your Approver ID and password.');
+      } else if (status === 429) {
         setError('Too many login attempts. Please try again later.');
       } else if (!navigator.onLine) {
         setError('No internet connection. Please check your network connection.');
       } else {
-        setError(err?.response?.data?.message || 'An error occurred while logging in. Please try again.');
+        setError(message || 'An error occurred while logging in. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -87,9 +100,10 @@ export default function LoginPage() {
       } else {
         setError(res.message || 'Invalid OTP.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Verify OTP error:', err);
-      setError(err?.response?.data?.message || 'Failed to verify OTP.');
+      const { message } = getErrorDetails(err);
+      setError(message || 'Failed to verify OTP.');
     } finally {
       setLoading(false);
     }
@@ -115,7 +129,7 @@ export default function LoginPage() {
             </CardTitle>
             <CardDescription className="text-gray-500 text-sm">
               {step === 'credentials'
-                ? 'Please enter your Developer ID and password to login.'
+                ? 'Please enter your Approver ID and password to login.'
                 : 'Enter the 6-digit OTP sent to your registered contact.'}
             </CardDescription>
           </CardHeader>
@@ -129,12 +143,12 @@ export default function LoginPage() {
                 </div>
                 )}
                 <div className="grid gap-2">
-                  <Label htmlFor="identifier">Developer ID</Label>
+                  <Label htmlFor="identifier">Approver ID</Label>
                   <Input
                     id="identifier"
                     name="identifier"
                     type="text"
-                    placeholder="Enter your Developer ID"
+                    placeholder="Enter your Approver ID"
                     required
                     disabled={loading}
                     value={identifier}

@@ -20,11 +20,14 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
       return;
     }
 
-    if (!allowedRoles.includes(user.role)) {
+    const normalizedRole = (user.role || '').toUpperCase();
+    const normalizedAllowed = allowedRoles.map((role) => role.toUpperCase());
+
+    if (!normalizedAllowed.includes(normalizedRole)) {
       // Redirect to appropriate page based on role
-      switch (user.role) {
-        case 'DEVELOPER':
-          router.push('/dashboard/inputbydev');
+      switch (normalizedRole) {
+        case 'APPROVER':
+          router.push('/dashboard');
           break;
         case 'ADMIN':
           router.push('/dashboard');

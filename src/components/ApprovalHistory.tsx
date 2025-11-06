@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
-import coreApi from "@/lib/coreApi"
+import { getKPRApprovalHistory } from "@/lib/coreApi"
 
 // Lazy load dialog agar tidak berat di awal
 const ViewApprovalDetails = React.lazy(() => import("@/components/dialogs/ViewApprovalDetails"))
@@ -89,12 +89,12 @@ export default function ApprovalHistory() {
       try {
         setLoading(true)
         setError(null)
-        const response = await coreApi.get<ApiResponse>('/kpr-applications/developer/history')
+        const response = await getKPRApprovalHistory() as ApiResponse | undefined
 
-        if (response.data.success) {
-          setData(response.data.data)
+        if (response?.success) {
+          setData(response.data)
         } else {
-          setError(response.data.message || 'Failed to fetch approval history')
+          setError(response?.message || 'Failed to fetch approval history')
         }
       } catch (err: any) {
         console.error('Error fetching approval history:', err)

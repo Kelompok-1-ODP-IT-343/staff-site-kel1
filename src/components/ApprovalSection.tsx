@@ -112,7 +112,7 @@ export default function ApprovalTable() {
           const normalizedList = list.map(normalizeItem)
           const pendingOnly = normalizedList.filter((item) => {
             const status = (item.status ?? "").toUpperCase()
-            return status.includes("SUBMITTED")
+            return status?.toUpperCase() !== "SUBMITTED";
           })
           setRows(pendingOnly)
         } else {
