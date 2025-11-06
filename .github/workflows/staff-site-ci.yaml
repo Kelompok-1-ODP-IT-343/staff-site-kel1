@@ -1,90 +1,89 @@
-name: CI & DockerHub Push (Next.js)
+name: CI - Build & Push Docker Image
 
 on:
   push:
-    branches: [main, develop]
-    tags: ["v*", "release-*"]
+    branches: ["main"]
   pull_request:
+    branches: ["main"]
+  workflow_dispatch:
 
 env:
-  IMAGE_NAME: staff-site-kel1     # ganti kalau mau nama image lain
+  IMAGE_NAME: staff-site-kel1
+  DOCKER_ORG: satuatap
+  REGISTRY: docker.io
 
 jobs:
-  # 1) CI: install, build, (opsional) test
-  ci:
+  build_and_push:
+    name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Next.js
-        run: npm run build
-
-      - name: Run tests (optional)
-        run: npm test --if-present
-
-  # 2) Build & Push Docker image (hanya saat push, bukan PR)
-  docker:
-    needs: ci
-    runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: read
-      packages: write
 
     steps:
-      - name: Checkout repo
+      # --- Step 1: Checkout source code ---
+      - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
+      # --- Step 2: Setup Docker Buildx ---
+      - name: ⚙️ Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Auto-generate tags & labels:
-      # - main  -> :latest
-      # - develop -> :dev
-      # - tag v1.2.3 -> :1.2.3 dan :latest
-      # - semua push -> :sha-xxxxxxxx
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch,pattern=main,name=latest
-            type=ref,event=branch,pattern=develop,name=dev
-            type=ref,event=tag
-            type=sha,prefix=sha-,format=short
-          labels: |
-            org.opencontainers.image.source=${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.title=${{ env.IMAGE_NAME }}
-
-      - name: Login to Docker Hub
+      # --- Step 3: Login to Docker Hub ---
+      - name: 🔐 Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      # --- Step 4: Extract metadata for tagging ---
+      - name: 🏷️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.DOCKER_ORG }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/heads/main') }}
+            type=sha,format=long
+
+      # --- Step 5: Build and Push Docker image (single build with cache) ---
+      - name: 🏗️ Build and Push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: true
-          platforms: linux/amd64   # tambah ,linux/arm64 jika perlu multi-arch
-          tags: ${{ steps.meta.outputs.tags }}
+          push: ${{ github.ref == 'refs/heads/main' }}  # only push on main
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.DOCKER_ORG }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.DOCKER_ORG }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.DOCKER_ORG }}/${{ env.IMAGE_NAME }}:cache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.DOCKER_ORG }}/${{ env.IMAGE_NAME }}:cache,mode=max
+
+      # =====================================
+      # --- OPTIONAL (COMMENTED) SECTIONS ---
+      # =====================================
+
+      # - name: 🧠 SonarCloud Scan
+      #   uses: SonarSource/sonarcloud-github-action@v2
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   with:
+      #     args: >
+      #       -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+      #       -Dsonar.organization=${{ vars.SONAR_ORG }}
+      #       -Dsonar.sources=.
+      #       -Dsonar.exclusions=**/node_modules/**,**/build/**,**/.next/**,**/coverage/**,**/public/**
+
+      # - name: 🧪 Trivy Scan
+      #   uses: aquasecurity/trivy-action@0.28.0
+      #   with:
+      #     image-ref: ${{ env.REGISTRY }}/${{ env.DOCKER_ORG }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      #     ignore-unfixed: true
+      #     format: sarif
+      #     output: trivy.sarif
+      #     severity: HIGH,CRITICAL
+      #     exit-code: 0
+
+      # - name: 📤 Upload Trivy report
+      #   uses: github/codeql-action/upload-sarif@v3
+      #   with:
+      #     sarif_file: trivy.sarif
