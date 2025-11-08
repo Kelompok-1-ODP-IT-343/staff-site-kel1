@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import coreApi from "@/lib/coreApi"
+import { getCurrentUser } from "@/services/auth"
 import { useRouter } from "next/navigation"
 import { Eye } from "lucide-react"
 
@@ -91,7 +92,8 @@ export default function ApprovalHistory() {
       try {
         setLoading(true)
         setError(null)
-        const response = await coreApi.get<ApiResponse>('/kpr-applications/developer/history')
+        // Endpoint khusus verifikator sesuai spesifikasi backend
+        const response = await coreApi.get<ApiResponse>('/kpr-applications/verifikator/history')
 
         if (response.data.success) {
           setData(response.data.data)
