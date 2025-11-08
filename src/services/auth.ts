@@ -223,12 +223,13 @@ export async function loginBlueprint(
       // Store the JWT tokens in cookies (token 15m, refreshToken 24h)
       saveTokens({ accessToken: data.token, refreshToken: data.refreshToken });
       
-      // Check if the user has the developer role
-      const userRole = decodedToken.role.toLowerCase();
-      if (userRole !== 'developer') {
+      // Allow only staff roles for this portal
+      const allowedRoles = ['APPROVER', 'VERIFIKATOR', 'ADMIN'];
+      const userRole = (decodedToken.role || '').toUpperCase();
+      if (!allowedRoles.includes(userRole)) {
         return {
           success: false,
-          message: "Access denied. This portal is only for developers."
+          message: "Access denied. This portal is only for staff."
         };
       }
 
@@ -288,9 +289,10 @@ export async function initiateLogin(
       }
       // Persist tokens in cookies
       saveTokens({ accessToken: data.token, refreshToken: data.refreshToken });
-      const userRole = (decodedToken.role || '').toLowerCase();
-      if (userRole !== 'developer') {
-        return { success: false, requiresOtp: false, message: 'Access denied. This portal is only for developers.' };
+      const allowedRoles = ['APPROVER', 'VERIFIKATOR', 'ADMIN'];
+      const userRole = (decodedToken.role || '').toUpperCase();
+      if (!allowedRoles.includes(userRole)) {
+        return { success: false, requiresOtp: false, message: 'Access denied. This portal is only for staff.' };
       }
       return { success: true, requiresOtp: false };
     }
@@ -329,9 +331,10 @@ export async function verifyOtpLogin(params: { identifier: string; otp: string }
     // Persist tokens in cookies
     saveTokens({ accessToken: data.token, refreshToken: data.refreshToken });
 
-    const userRole = (decodedToken.role || '').toLowerCase();
-    if (userRole !== 'developer') {
-      return { success: false, message: 'Access denied. This portal is only for developers.' };
+    const allowedRoles = ['APPROVER', 'VERIFIKATOR', 'ADMIN'];
+    const userRole = (decodedToken.role || '').toUpperCase();
+    if (!allowedRoles.includes(userRole)) {
+      return { success: false, message: 'Access denied. This portal is only for staff.' };
     }
 
     return {

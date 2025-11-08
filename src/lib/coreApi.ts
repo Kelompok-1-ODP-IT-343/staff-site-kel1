@@ -306,7 +306,8 @@ export const getUserProfile = async () => {
 // KPR Applications API functions
 export const getKPRApplicationsProgress = async () => {
   try {
-    const response = await coreApi.get("/kpr-applications/developer/progress");
+    // Verifikator endpoint sesuai spesifikasi backend
+    const response = await coreApi.get("/kpr-applications/verifikator/progress");
     return response.data;
   } catch (error) {
     console.error("Error fetching KPR applications progress:", error);
@@ -326,7 +327,7 @@ export const getKPRApplicationDetail = async (applicationId: string) => {
 
 export const approveKPRApplication = async (applicationId: string, approvalNotes: string) => {
   try {
-    const response = await coreApi.post(`/approval/developer`, {
+    const response = await coreApi.post(`/approval/verifikator`, {
       isApproved: true,
       reason: approvalNotes || "",
       applicationId: parseInt(applicationId)
@@ -340,7 +341,7 @@ export const approveKPRApplication = async (applicationId: string, approvalNotes
 
 export const rejectKPRApplication = async (applicationId: string, rejectionReason: string) => {
   try {
-    const response = await coreApi.post(`/approval/developer`, {
+    const response = await coreApi.post(`/approval/verifikator`, {
       isApproved: false,
       reason: rejectionReason || "",
       applicationId: parseInt(applicationId)
