@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { getCurrentUser, getRefreshToken } from '@/services/auth';
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { getCurrentUser, getRefreshToken } from "@/services/auth";
 
 interface RoleGuardProps {
   children: React.ReactNode;
@@ -32,23 +32,9 @@ export default function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
       }
 
       if (!user) {
-        router.push('/login');
+        router.push("/login");
         return;
       }
-
-      // if (!allowedRoles.includes(user.role)) {
-      //   // Redirect to appropriate page based on role
-      //   switch (user.role) {
-      //     case 'DEVELOPER':
-      //       router.push('/dashboard/inputbydev');
-      //       break;
-      //     case 'ADMIN':
-      //       router.push('/dashboard');
-      //       break;
-      //     default:
-      //       router.push('/login');
-      //   }
-      // }
     }
 
     void guard();

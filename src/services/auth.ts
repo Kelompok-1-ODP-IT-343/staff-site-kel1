@@ -18,21 +18,26 @@ function getCookie(name: string): string | null {
 
 function setCookieMaxAge(name: string, value: string, maxAgeSeconds: number) {
   if (typeof document === "undefined") return;
-  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+  const isHttps =
+    typeof window !== "undefined" && window.location.protocol === "https:";
   const encoded = encodeURIComponent(value);
   document.cookie = `${name}=${encoded}; max-age=${maxAgeSeconds}; path=/; ${isHttps ? "secure; " : ""}SameSite=Lax`;
 }
 
 function deleteCookie(name: string) {
   if (typeof document === "undefined") return;
-  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+  const isHttps =
+    typeof window !== "undefined" && window.location.protocol === "https:";
   document.cookie = `${name}=; max-age=0; path=/; ${isHttps ? "secure; " : ""}SameSite=Lax`;
 }
 
 // TTL policy now controlled by cookie expiry directly
 export const REFRESH_TTL_MS = 24 * 60 * 60 * 1000; // kept for reference but not stored
 
-export function saveTokens(params: { accessToken: string; refreshToken?: string }) {
+export function saveTokens(params: {
+  accessToken: string;
+  refreshToken?: string;
+}) {
   if (typeof window === "undefined") return;
   const { accessToken, refreshToken } = params;
   // token: expire 15 menit; refreshToken: expire 24 jam
@@ -65,7 +70,10 @@ export function clearTokens() {
       "Authorization",
     ];
 
-    const deleteCookie = (name: string, opts?: { domain?: string; secure?: boolean }) => {
+    const deleteCookie = (
+      name: string,
+      opts?: { domain?: string; secure?: boolean },
+    ) => {
       const parts: string[] = [
         `${encodeURIComponent(name)}=`,
         "expires=Thu, 01 Jan 1970 00:00:00 GMT",
@@ -169,22 +177,22 @@ export async function logout(): Promise<LogoutResult> {
   try {
     // Call the logout endpoint
     await coreApi.post(API_ENDPOINTS.LOGOUT);
-    
+
     // Clear local storage
     clearTokens();
-    
+
     return {
-      success: true
+      success: true,
     };
   } catch (err: any) {
-    console.error('Logout error:', err);
-    
+    console.error("Logout error:", err);
+
     // Still clear local storage even if the API call fails
     clearTokens();
-    
+
     return {
       success: false,
-      message: err?.response?.data?.message || "Logout failed"
+      message: err?.response?.data?.message || "Logout failed",
     };
   }
 }
@@ -192,69 +200,69 @@ export async function logout(): Promise<LogoutResult> {
 // Blueprint login: panggilan API asli dikomentari, return success
 // API endpoints
 const API_ENDPOINTS = {
-  LOGIN: '/auth/login',    // This will be appended to the base URL from .env.local
-  PROFILE: '/user/profile',
-  LOGOUT: '/auth/logout'   // Will be /api/v1/auth/logout
+  LOGIN: "/auth/login", // This will be appended to the base URL from .env.local
+  PROFILE: "/user/profile",
+  LOGOUT: "/auth/logout", // Will be /api/v1/auth/logout
 };
 
 export async function loginBlueprint(
-  payload: LoginPayload
+  payload: LoginPayload,
 ): Promise<AuthSuccess | AuthFailure> {
   try {
     // Make API call to your login endpoint
     const response = await coreApi.post(API_ENDPOINTS.LOGIN, {
       identifier: payload.identifier,
-      password: payload.password
+      password: payload.password,
     });
 
     const { success, message, data } = response.data;
-    
+
     if (success) {
       // Get user info from the JWT token
       const decodedToken = decodeJWT(data.token);
-      
+
       if (!decodedToken) {
         return {
           success: false,
-          message: "Invalid token received"
+          message: "Invalid token received",
         };
       }
 
       // Store the JWT tokens in cookies (token 15m, refreshToken 24h)
       saveTokens({ accessToken: data.token, refreshToken: data.refreshToken });
-      
+
       // Allow only staff roles for this portal
-      const allowedRoles = ['APPROVER', 'VERIFIKATOR', 'ADMIN'];
-      const userRole = (decodedToken.role || '').toUpperCase();
+      const allowedRoles = ["APPROVER", "VERIFIKATOR", "ADMIN"];
+      const userRole = (decodedToken.role || "").toUpperCase();
       if (!allowedRoles.includes(userRole)) {
         return {
           success: false,
-          message: "Access denied. This portal is only for staff."
+          message: "Access denied. This portal is only for staff.",
         };
       }
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         token: data.token,
         user: {
           id: decodedToken.userId,
           name: decodedToken.sub,
-          role: decodedToken.role
-        }
+          role: decodedToken.role,
+        },
       };
     }
-    
+
     return {
       success: false,
-      message: message || "Login failed"
+      message: message || "Login failed",
     };
   } catch (err: any) {
     // Handle API errors
-    console.error('Login error:', err);
+    console.error("Login error:", err);
     const message = err?.response?.data?.message || "Login failed";
-    return { 
-      success: false, 
-      message 
+    return {
+      success: false,
+      message,
     };
   }
 }
@@ -267,10 +275,10 @@ export type LoginInitResult = {
 };
 
 export async function initiateLogin(
-  payload: LoginPayload
+  payload: LoginPayload,
 ): Promise<LoginInitResult> {
   try {
-    const response = await coreApi.post('/auth/login', {
+    const response = await coreApi.post("/auth/login", {
       identifier: payload.identifier,
       password: payload.password,
     });
@@ -278,21 +286,33 @@ export async function initiateLogin(
     const { success, message, data } = response.data || {};
 
     if (!success) {
-      return { success: false, requiresOtp: false, message: message || 'Login failed' };
+      return {
+        success: false,
+        requiresOtp: false,
+        message: message || "Login failed",
+      };
     }
 
     // If token exists, login completed (no OTP required)
     if (data?.token) {
       const decodedToken = decodeJWT(data.token);
       if (!decodedToken) {
-        return { success: false, requiresOtp: false, message: 'Invalid token received' };
+        return {
+          success: false,
+          requiresOtp: false,
+          message: "Invalid token received",
+        };
       }
       // Persist tokens in cookies
       saveTokens({ accessToken: data.token, refreshToken: data.refreshToken });
-      const allowedRoles = ['APPROVER', 'VERIFIKATOR', 'ADMIN'];
-      const userRole = (decodedToken.role || '').toUpperCase();
+      const allowedRoles = ["APPROVER", "VERIFIKATOR", "ADMIN"];
+      const userRole = (decodedToken.role || "").toUpperCase();
       if (!allowedRoles.includes(userRole)) {
-        return { success: false, requiresOtp: false, message: 'Access denied. This portal is only for staff.' };
+        return {
+          success: false,
+          requiresOtp: false,
+          message: "Access denied. This portal is only for staff.",
+        };
       }
       return { success: true, requiresOtp: false };
     }
@@ -300,41 +320,54 @@ export async function initiateLogin(
     // Otherwise assume OTP is required
     return { success: true, requiresOtp: true };
   } catch (err: any) {
-    console.error('Initiate login error:', err);
-    return { success: false, requiresOtp: false, message: err?.response?.data?.message || 'Login failed' };
+    console.error("Initiate login error:", err);
+    return {
+      success: false,
+      requiresOtp: false,
+      message: err?.response?.data?.message || "Login failed",
+    };
   }
 }
 
 // New: verify OTP for login
-export async function verifyOtpLogin(params: { identifier: string; otp: string }): Promise<AuthSuccess | AuthFailure> {
+export async function verifyOtpLogin(params: {
+  identifier: string;
+  otp: string;
+}): Promise<AuthSuccess | AuthFailure> {
   try {
-    const response = await coreApi.post('/auth/verify-otp', {
+    const response = await coreApi.post("/auth/verify-otp", {
       identifier: params.identifier,
       otp: params.otp,
-      purpose: 'login',
+      purpose: "login",
     });
 
     const { success, message, data } = response.data || {};
     if (!success) {
-      return { success: false, message: message || 'OTP verification failed' };
+      return { success: false, message: message || "OTP verification failed" };
     }
 
     if (!data?.token) {
-      return { success: false, message: 'No token returned from OTP verification' };
+      return {
+        success: false,
+        message: "No token returned from OTP verification",
+      };
     }
 
     const decodedToken = decodeJWT(data.token);
     if (!decodedToken) {
-      return { success: false, message: 'Invalid token received' };
+      return { success: false, message: "Invalid token received" };
     }
 
     // Persist tokens in cookies
     saveTokens({ accessToken: data.token, refreshToken: data.refreshToken });
 
-    const allowedRoles = ['APPROVER', 'VERIFIKATOR', 'ADMIN'];
-    const userRole = (decodedToken.role || '').toUpperCase();
+    const allowedRoles = ["APPROVER", "VERIFIKATOR", "ADMIN"];
+    const userRole = (decodedToken.role || "").toUpperCase();
     if (!allowedRoles.includes(userRole)) {
-      return { success: false, message: 'Access denied. This portal is only for staff.' };
+      return {
+        success: false,
+        message: "Access denied. This portal is only for staff.",
+      };
     }
 
     return {
@@ -347,13 +380,21 @@ export async function verifyOtpLogin(params: { identifier: string; otp: string }
       },
     };
   } catch (err: any) {
-    console.error('Verify OTP error:', err);
-    return { success: false, message: err?.response?.data?.message || 'OTP verification failed' };
+    console.error("Verify OTP error:", err);
+    return {
+      success: false,
+      message: err?.response?.data?.message || "OTP verification failed",
+    };
   }
 }
 
 // Perform token refresh explicitly (normally handled by interceptor)
-export async function refreshAccessToken(): Promise<{ success: boolean; accessToken?: string; refreshToken?: string; message?: string }>{
+export async function refreshAccessToken(): Promise<{
+  success: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  message?: string;
+}> {
   try {
     if (isRefreshExpired()) {
       return { success: false, message: "Refresh token expired" };
@@ -363,22 +404,25 @@ export async function refreshAccessToken(): Promise<{ success: boolean; accessTo
       return { success: false, message: "No refresh token" };
     }
 
-    const resp = await refreshClient.post(
-      '/auth/refresh',
-      { refreshToken }
-    );
+    const resp = await refreshClient.post("/auth/refresh", { refreshToken });
 
     const respData = resp?.data ?? {};
     const token = respData?.data?.token ?? respData?.token;
     const newRefresh = respData?.data?.refreshToken ?? respData?.refreshToken;
     if (!token) {
-      return { success: false, message: respData?.message || 'Failed to refresh token' };
+      return {
+        success: false,
+        message: respData?.message || "Failed to refresh token",
+      };
     }
 
     // Save new tokens to cookies
     saveTokens({ accessToken: token, refreshToken: newRefresh });
     return { success: true, accessToken: token, refreshToken: newRefresh };
   } catch (err: any) {
-    return { success: false, message: err?.response?.data?.message || 'Failed to refresh token' };
+    return {
+      success: false,
+      message: err?.response?.data?.message || "Failed to refresh token",
+    };
   }
 }

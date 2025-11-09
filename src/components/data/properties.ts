@@ -1,33 +1,33 @@
 // src/components/data/properties.ts
 
 export type Property = {
-  id: string
-  property_type: string
-  title: string
-  description: string
-  address: string
-  sub_district: string
-  district: string
-  city: string
-  province: string
-  postal_code: string
-  latitude: number
-  longitude: number
-  land_area: number
-  building_area: number
-  bedrooms: number
-  bathrooms: number
-  floors: number
-  garage: number
-  year_built: number
-  price: number
-  price_per_sqm: number
-  maintenance_fee: number
-  certificate_type: string
-  pbb_value: number
-  company_name: string
-  image_url: string
-}
+  id: string;
+  property_type: string;
+  title: string;
+  description: string;
+  address: string;
+  sub_district: string;
+  district: string;
+  city: string;
+  province: string;
+  postal_code: string;
+  latitude: number;
+  longitude: number;
+  land_area: number;
+  building_area: number;
+  bedrooms: number;
+  bathrooms: number;
+  floors: number;
+  garage: number;
+  year_built: number;
+  price: number;
+  price_per_sqm: number;
+  maintenance_fee: number;
+  certificate_type: string;
+  pbb_value: number;
+  company_name: string;
+  image_url: string;
+};
 
 export const properties: Property[] = [
   {
@@ -175,4 +175,4 @@ export const properties: Property[] = [
     company_name: "Sinarmas Land",
     image_url: "/images/rumah5.jpg",
   },
-]
+];

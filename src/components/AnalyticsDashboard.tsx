@@ -8,7 +8,7 @@ import {
   Users,
   TrendingUp,
   TrendingDown,
-  Hourglass
+  Hourglass,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -30,7 +30,6 @@ const COLORS = {
 
 const MAX_BORROWERS = 20000;
 
-
 export default function AnalyticsKpiRadial() {
   const [range, setRange] = useState("30d");
   const ranges = ["7d", "30d", "90d", "YTD"];
@@ -44,38 +43,165 @@ export default function AnalyticsKpiRadial() {
     unit: string;
   };
 
-type KpiRangeKey = "7d" | "30d" | "90d" | "YTD";
+  type KpiRangeKey = "7d" | "30d" | "90d" | "YTD";
   // Data KPI per range
   const kpiRanges = {
     "7d": [
-      { title: "Approve", subtitle: "Total Approved", value: 15, trend: +3.2, icon: CheckCircle2, color: COLORS.teal, unit: "" },
-      { title: "Reject", subtitle: "Total Rejected", value: 4, trend: -0.8, icon: XCircle, color: COLORS.orange, unit: "" },
-      { title: "Pending", subtitle: "Total Pending", value: 6, trend: +1.5, icon: Hourglass, color: COLORS.lime, unit: "" },
-      { title: "Customers", subtitle: "Nasabah Aktif", value: 2500, trend: +1.2, icon: Users, color: COLORS.teal, unit: "rb" },
+      {
+        title: "Approve",
+        subtitle: "Total Approved",
+        value: 15,
+        trend: +3.2,
+        icon: CheckCircle2,
+        color: COLORS.teal,
+        unit: "",
+      },
+      {
+        title: "Reject",
+        subtitle: "Total Rejected",
+        value: 4,
+        trend: -0.8,
+        icon: XCircle,
+        color: COLORS.orange,
+        unit: "",
+      },
+      {
+        title: "Pending",
+        subtitle: "Total Pending",
+        value: 6,
+        trend: +1.5,
+        icon: Hourglass,
+        color: COLORS.lime,
+        unit: "",
+      },
+      {
+        title: "Customers",
+        subtitle: "Nasabah Aktif",
+        value: 2500,
+        trend: +1.2,
+        icon: Users,
+        color: COLORS.teal,
+        unit: "rb",
+      },
     ],
     "30d": [
-      { title: "Approve", subtitle: "Total Approved", value: 82, trend: +5.2, icon: CheckCircle2, color: COLORS.teal, unit: "" },
-      { title: "Reject", subtitle: "Total Rejected", value: 18, trend: -1.4, icon: XCircle, color: COLORS.orange, unit: "" },
-      { title: "Pending", subtitle: "Total Pending", value: 27, trend: +3.1, icon: Hourglass, color: COLORS.lime, unit: "" },
-      { title: "Customers", subtitle: "Nasabah Aktif", value: 8200, trend: +2.8, icon: Users, color: COLORS.teal, unit: "rb" },
+      {
+        title: "Approve",
+        subtitle: "Total Approved",
+        value: 82,
+        trend: +5.2,
+        icon: CheckCircle2,
+        color: COLORS.teal,
+        unit: "",
+      },
+      {
+        title: "Reject",
+        subtitle: "Total Rejected",
+        value: 18,
+        trend: -1.4,
+        icon: XCircle,
+        color: COLORS.orange,
+        unit: "",
+      },
+      {
+        title: "Pending",
+        subtitle: "Total Pending",
+        value: 27,
+        trend: +3.1,
+        icon: Hourglass,
+        color: COLORS.lime,
+        unit: "",
+      },
+      {
+        title: "Customers",
+        subtitle: "Nasabah Aktif",
+        value: 8200,
+        trend: +2.8,
+        icon: Users,
+        color: COLORS.teal,
+        unit: "rb",
+      },
     ],
     "90d": [
-      { title: "Approve", subtitle: "Total Approved", value: 210, trend: +7.9, icon: CheckCircle2, color: COLORS.teal, unit: "" },
-      { title: "Reject", subtitle: "Total Rejected", value: 45, trend: -2.2, icon: XCircle, color: COLORS.orange, unit: "" },
-      { title: "Pending", subtitle: "Total Pending", value: 60, trend: +4.4, icon: Hourglass, color: COLORS.lime, unit: "" },
-      { title: "Customers", subtitle: "Nasabah Aktif", value: 15200, trend: +3.4, icon: Users, color: COLORS.teal, unit: "rb" },
+      {
+        title: "Approve",
+        subtitle: "Total Approved",
+        value: 210,
+        trend: +7.9,
+        icon: CheckCircle2,
+        color: COLORS.teal,
+        unit: "",
+      },
+      {
+        title: "Reject",
+        subtitle: "Total Rejected",
+        value: 45,
+        trend: -2.2,
+        icon: XCircle,
+        color: COLORS.orange,
+        unit: "",
+      },
+      {
+        title: "Pending",
+        subtitle: "Total Pending",
+        value: 60,
+        trend: +4.4,
+        icon: Hourglass,
+        color: COLORS.lime,
+        unit: "",
+      },
+      {
+        title: "Customers",
+        subtitle: "Nasabah Aktif",
+        value: 15200,
+        trend: +3.4,
+        icon: Users,
+        color: COLORS.teal,
+        unit: "rb",
+      },
     ],
-    "YTD": [
-      { title: "Approve", subtitle: "Total Approved", value: 780, trend: +9.8, icon: CheckCircle2, color: COLORS.teal, unit: "" },
-      { title: "Reject", subtitle: "Total Rejected", value: 180, trend: -3.0, icon: XCircle, color: COLORS.orange, unit: "" },
-      { title: "Pending", subtitle: "Total Pending", value: 110, trend: +5.5, icon: Hourglass, color: COLORS.lime, unit: "" },
-      { title: "Customers", subtitle: "Nasabah Aktif", value: 19300, trend: +4.1, icon: Users, color: COLORS.teal, unit: "rb" },
+    YTD: [
+      {
+        title: "Approve",
+        subtitle: "Total Approved",
+        value: 780,
+        trend: +9.8,
+        icon: CheckCircle2,
+        color: COLORS.teal,
+        unit: "",
+      },
+      {
+        title: "Reject",
+        subtitle: "Total Rejected",
+        value: 180,
+        trend: -3.0,
+        icon: XCircle,
+        color: COLORS.orange,
+        unit: "",
+      },
+      {
+        title: "Pending",
+        subtitle: "Total Pending",
+        value: 110,
+        trend: +5.5,
+        icon: Hourglass,
+        color: COLORS.lime,
+        unit: "",
+      },
+      {
+        title: "Customers",
+        subtitle: "Nasabah Aktif",
+        value: 19300,
+        trend: +4.1,
+        icon: Users,
+        color: COLORS.teal,
+        unit: "rb",
+      },
     ],
   };
 
   // Ambil data sesuai range
   const kpiData: KpiItem[] = kpiRanges[range as KpiRangeKey];
-
 
   return (
     <div className="space-y-6">
@@ -121,8 +247,8 @@ function KpiCard({
     unit === "%"
       ? value
       : unit === "rb"
-      ? Math.min((value / MAX_BORROWERS) * 100, 100)
-      : value;
+        ? Math.min((value / MAX_BORROWERS) * 100, 100)
+        : value;
 
   const chartData = [
     { name: "progress", value: progress, fill: color },
@@ -137,13 +263,16 @@ function KpiCard({
           <Icon className="h-5 w-5 text-gray-400 dark:text-gray-300" />
           <h3
             className="text-[12px] font-medium text-gray-600 dark:text-white"
-            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: "20px", lineHeight: "1.2" , color: "var(--kpi-title-color)"}}
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 500,
+              fontSize: "20px",
+              lineHeight: "1.2",
+              color: "var(--kpi-title-color)",
+            }}
           >
             {title}
           </h3>
-
-
-
         </div>
 
         <div
@@ -171,9 +300,9 @@ function KpiCard({
           <RadialBarChart
             cx="50%"
             cy="50%"
-            innerRadius="75%"   // bisa dikurangi agar bagian dalam lebih kecil, mempertebal ring
+            innerRadius="75%" // bisa dikurangi agar bagian dalam lebih kecil, mempertebal ring
             outerRadius="100%"
-            barSize={45}        // naikkan dari 15 jadi 30 agar ring lebih tebal
+            barSize={45} // naikkan dari 15 jadi 30 agar ring lebih tebal
             data={chartData}
             startAngle={90}
             endAngle={-270}
@@ -213,8 +342,8 @@ function KpiCard({
                             {unit === "%"
                               ? `${value}%`
                               : unit === "rb"
-                              ? `${(value / 1000).toFixed(1)} rb`
-                              : value.toLocaleString("id-ID")}
+                                ? `${(value / 1000).toFixed(1)} rb`
+                                : value.toLocaleString("id-ID")}
                           </tspan>
                           <tspan
                             x={cx}
@@ -231,7 +360,6 @@ function KpiCard({
               />
             </PolarRadiusAxis>
           </RadialBarChart>
-
         </ResponsiveContainer>
       </div>
     </div>

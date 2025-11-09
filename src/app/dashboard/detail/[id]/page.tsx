@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, JSX } from 'react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
-  Check, X, XCircle, Trash2,
+  Check, X, XCircle,
   User2, Wallet, BarChart3, FileText, Eye, Settings2,
   CheckCircle2, AlertCircle, TrendingUp, Lightbulb
 } from 'lucide-react';
@@ -16,9 +16,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { getKPRApplicationDetail, getCreditScore, approveKPRApplication, rejectKPRApplication, getCreditRecommendation } from '@/lib/coreApi';
+import {
+  getKPRApplicationDetail,
+  getCreditScore,
+  approveKPRApplication,
+  rejectKPRApplication,
+  getCreditRecommendation
+} from '@/lib/coreApi';
 
 /** ---------- Types from your API (minimal) ---------- */
+type ApprovalWorkflow = {
+  workflowId: number;
+  applicationId: number;
+  stage: 'PROPERTY_APPRAISAL' | 'CREDIT_ANALYSIS' | 'FINAL_APPROVAL' | string;
+  assignedTo?: number | null;
+  assignedToName?: string | null;
+  assignedToEmail?: string | null;
+  assignedToRole?: string | null;
+  status?: 'PENDING' | 'IN_PROGRESS' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | string | null;
+  priority?: string | null;
+  dueDate?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  approvalNotes?: string | null;
+  rejectionReason?: string | null;
+};
 type KPRApplicationData = {
   id?: number;
   applicationId?: number;
@@ -56,7 +78,6 @@ type KPRApplicationData = {
   credit_status?: string;
   credit_score?: string | number;
 
-  // When you return nested structures:
   userInfo?: {
     fullName?: string;
     email?: string;
@@ -168,12 +189,10 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
   const searchParams = useSearchParams();
   const params = useParams();
 
-  // support both /kpr/[id] and /kpr/detail?id=...
   const id =
     (params?.id as string | undefined) ??
     (searchParams.get('id') ?? '');
 
-  // Support reading explicit applicationNumber from query; fallback to id
   const applicationNumber = (searchParams.get('applicationNumber') ?? id) as string;
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
@@ -181,7 +200,7 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [score, setScore] = useState<number>(0);
   const [scoreLoading, setScoreLoading] = useState(true);
-  const [application, setApplication] = useState<any | null>(null); // raw app detail with loanAmount, loanTermYears
+  const [application, setApplication] = useState<any | null>(null);
   const [docViewer, setDocViewer] = useState<{ open: boolean; title: string; url: string | null }>({
     open: false,
     title: '',
@@ -193,11 +212,20 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [reasonInput, setReasonInput] = useState("");
-  
-  // Credit Recommendation State
+
+  const workflows: ApprovalWorkflow[] = useMemo(() => {
+    const arr = (application as any)?.approvalWorkflows as ApprovalWorkflow[] | undefined;
+    return Array.isArray(arr) ? arr : [];
+  }, [application]);
+
   const [recommendation, setRecommendation] = useState<CreditRecommendation | null>(null);
   const [recommendationLoading, setRecommendationLoading] = useState(false);
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
+
+  const sortedWorkflows: ApprovalWorkflow[] = useMemo(() => {
+    const arr = Array.isArray(workflows) ? [...workflows] : [];
+    return arr.sort((a, b) => (a.workflowId ?? 0) - (b.workflowId ?? 0));
+  }, [workflows]);
 
   useEffect(() => {
     let active = true;
@@ -212,12 +240,12 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
         setLoadError(null);
 
         const api = await getKPRApplicationDetail(id);
+        const payload:
+          | KPRApplicationData
+          | (KPRApplicationData & { approvalWorkflows?: ApprovalWorkflow[]; kprRateInfo?: any; propertyInfo?: any })
+          | undefined =
+          api?.data?.data ?? api?.data ?? api;
 
-        // Works for either AxiosResponse<{ success, message, data }> or plain object
-        const payload: KPRApplicationData | undefined =
-          api?.data?.data ??     // <- inner data for { success, message, data }
-          api?.data ??           // <- plain { ... } returned as AxiosResponse
-          api;
         if (!active) return;
 
         if (!payload) {
@@ -225,17 +253,14 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
           setLoadError('Data tidak ditemukan.');
           return;
         }
-  const customerData = mapToCustomerDetail(id, payload);
+        const customerData = mapToCustomerDetail(id, payload as KPRApplicationData);
         setCustomer(customerData);
-  setApplication(payload as any);
+        setApplication(payload as any);
 
-        // Fetch credit score after customer data is loaded
         if (customerData.id) {
           fetchCreditScore(customerData.id);
         }
-
-  // Fetch credit recommendation (centralized in core API)
-  fetchCreditRecommendation(id);
+        fetchCreditRecommendation(id);
       } catch (e: any) {
         setLoadError(e?.message || 'Gagal memuat data.');
         setCustomer(null);
@@ -248,28 +273,22 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
     };
   }, [id]);
 
-  // Fetch credit score from API
   const fetchCreditScore = async (userId: string) => {
     try {
       setScoreLoading(true);
       const data = await getCreditScore(userId);
-      
       if (data.success && data.score) {
         setScore(Math.round(data.score));
       } else {
-        // Fallback to default score if API doesn't return valid data
         setScore(650);
       }
-    } catch (error) {
-      console.error('Error fetching credit score:', error);
-      // Fallback to default score on error
+    } catch {
       setScore(650);
     } finally {
       setScoreLoading(false);
     }
   };
 
-  // Fetch credit recommendation from API (centralized in core API)
   const fetchCreditRecommendation = async (applicationId: string) => {
     try {
       setRecommendationLoading(true);
@@ -282,7 +301,6 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
         throw new Error('Invalid recommendation response');
       }
     } catch (error: any) {
-      console.error('Error fetching credit recommendation:', error);
       setRecommendationError(error?.message || 'Failed to fetch credit recommendation');
     } finally {
       setRecommendationLoading(false);
@@ -352,6 +370,30 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
   const openDoc = (title: string, url: string | null) => setDocViewer({ open: true, title, url });
   const closeDoc = () => setDocViewer({ open: false, title: '', url: null });
 
+  const nameOrEmail = (wf?: ApprovalWorkflow | null) => {
+    if (!wf) return '-';
+    return (wf.assignedToName && wf.assignedToName.trim()) ? wf.assignedToName : (wf.assignedToEmail ?? '-');
+  };
+
+  const statusBadge = (status?: string | null) => {
+    const s = (status ?? '').toUpperCase();
+    if (s === 'APPROVED' || s === 'COMPLETED' || s === 'DONE') return 'bg-green-100 text-green-700 border-green-200';
+    if (s === 'REJECTED') return 'bg-red-100 text-red-700 border-red-200';
+    if (s === 'IN_PROGRESS') return 'bg-blue-100 text-blue-700 border-blue-200';
+    return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+  };
+
+  type NodeState = 'done' | 'active' | 'pending';
+  const nodeState = (index: number): NodeState => {
+    if (index === 0) return sortedWorkflows.length > 0 ? 'done' : 'active';
+    const wf = sortedWorkflows[index - 1];
+    const st = (wf?.status ?? '').toUpperCase();
+    if (['APPROVED', 'COMPLETED', 'DONE'].includes(st)) return 'done';
+    const prevDone = index === 1 ? true : (['APPROVED', 'COMPLETED', 'DONE'].includes(((sortedWorkflows[index - 2]?.status) ?? '').toUpperCase()));
+    if (prevDone && (st === 'PENDING' || st === 'IN_PROGRESS' || st === '')) return 'active';
+    return 'pending';
+  };
+
   return (
     <div className="approval-page min-h-screen bg-white text-gray-700 relative">
       {/* Header */}
@@ -362,8 +404,8 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
               <img src="/logo-satuatap.png" alt="Satu Atap Logo" className="h-full w-full object-cover" />
             </div>
             <div>
-              <h1 className="font-semibold text-lg text-black">Approval Detail KPR</h1>
-              <p className="text-xs">Satu Atap Admin • Simulasi Suku Bunga</p>
+              <h1 className="font-semibold text-lg text-black">KPR Application Detail</h1>
+              <p className="text-xs">Berikut Informasi Detail Aplikasi KPR</p>
             </div>
           </div>
 
@@ -378,42 +420,55 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
 
       {/* Main */}
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
-        {/* Summary Cards */}
-        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+        {/* ===== Summary Cards (rapi & seragam) ===== */}
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-fr">
           {/* Aplikasi */}
-          <div className="p-5 rounded-2xl shadow-sm border flex flex-col items-center justify-center text-center min-h-[160px]" style={{ borderColor: colors.gray + '33' }}>
-            <div className="flex items-center gap-2 justify-center">
-              <FileText className="h-6 w-6" color={colors.blue} />
-              <p className="text-sm font-semibold text-gray-700 leading-none">Aplikasi</p>
-            </div>
+          <SummaryCard
+            colors={colors}
+            icon={<FileText className="h-6 w-6" color={colors.blue} />}
+            title="Aplikasi"
+          >
             <div className="text-sm space-y-1 text-gray-700">
               <p>
                 <span className="text-gray-500">Nomor Aplikasi: </span>
-                <span className="font-semibold text-black">{(application as any)?.applicationNumber ?? applicationNumber ?? (application as any)?.applicationId ?? '-'}</span>
+                <span className="font-extrabold text-black">
+                  {(application as any)?.applicationNumber ??
+                    applicationNumber ??
+                    (application as any)?.applicationId ??
+                    '-'}
+                </span>
               </p>
               <p>
                 <span className="text-gray-500">Status: </span>
-                <span className="font-semibold text-black">{(application as any)?.status ?? (application as any)?.applicationStatus ?? '-'}</span>
+                <span className="font-extrabold text-black">
+                  {(application as any)?.status ??
+                    (application as any)?.applicationStatus ??
+                    '-'}
+                </span>
               </p>
             </div>
-          </div>
-          <div className="p-5 rounded-2xl shadow-sm border flex flex-col items-center justify-center text-center min-h-[160px]" style={{ borderColor: colors.gray + '33' }}>
-            <div className="flex items-center gap-2 mb-2 justify-center">
-              <User2 className="h-7 w-7" color={colors.blue} />
-              <p className="text-sm font-semibold text-gray-700">Nasabah</p>
-            </div>
+          </SummaryCard>
+
+          {/* Nasabah */}
+          <SummaryCard
+            colors={colors}
+            icon={<User2 className="h-7 w-7" color={colors.blue} />}
+            title="Nasabah"
+          >
             <h3 className="font-semibold text-black text-xl">{customer.name}</h3>
             <div className="text-sm text-gray-600 space-y-0.5">
               <p>{customer.email}</p>
               <p>{customer.phone ?? '-'}</p>
             </div>
-          </div>
+          </SummaryCard>
 
-          <div className="p-5 rounded-2xl shadow-sm border flex flex-col items-center justify-center text-center min-h-[160px]" style={{ borderColor: colors.gray + '33' }}>
-            <div className="flex items-center gap-2 mb-2 justify-center">
-              <Wallet className="h-7 w-7" color={colors.blue} />
-              <p className="text-sm font-semibold text-gray-700">Plafon</p>
-            </div>
+          {/* Plafon */}
+          <SummaryCard
+            colors={colors}
+            icon={<Wallet className="h-7 w-7" color={colors.blue} />}
+            title="Plafon"
+          >
             <h3 className="font-semibold text-black text-2xl">
               Rp{Math.round((application?.loanAmount ?? loanAmount) as number).toLocaleString('id-ID')}
             </h3>
@@ -424,58 +479,56 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
                 return lt > 50 ? lt : lt * 12;
               })()} bulan
             </p>
-          </div>
+          </SummaryCard>
 
-          {/* FICO (from API) */}
-          <div className="p-5 rounded-2xl shadow-sm border flex flex-col items-center justify-center text-center min-h-[160px]" style={{ borderColor: colors.gray + '33' }}>
-            <div className="flex items-center gap-2 mb-3 justify-center">
-              <BarChart3 className="h-7 w-7" color={colors.blue} />
-              <p className="text-sm font-semibold text-gray-700">FICO® Score</p>
-            </div>
-            <div className="flex justify-center">
-              {scoreLoading ? (
-                <div className="text-sm text-muted-foreground">Loading score...</div>
-              ) : (
-                <div className="relative w-40 h-20">
-                  <svg viewBox="0 0 100 50" className="w-full h-full">
-                    <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#E5E7EB" strokeWidth="8" strokeLinecap="round" />
-                    <path
-                      d="M10 50 A40 40 0 0 1 90 50"
-                      fill="none"
-                      stroke={
-                        score <= 560 ? '#EF4444' :
-                        score <= 650 ? '#F97316' :
-                        score <= 700 ? '#EAB308' :
-                        score <= 750 ? '#3B82F6' : '#22C55E'
-                      }
-                      strokeWidth="8"
-                      strokeDasharray={`${((score - 300) / 550) * 126} 126`}
-                      strokeLinecap="round"
-                    />
-                    <text x="50" y="32" textAnchor="middle" fontSize="14" fontWeight="800" fill="#111827">{score}</text>
-                    <text
-                      x="50"
-                      y="44"
-                      textAnchor="middle"
-                      fontSize="7"
-                      fontWeight="600"
-                      fill={
-                        score <= 560 ? '#dc2626' :
-                        score <= 650 ? '#ea580c' :
-                        score <= 700 ? '#ca8a04' :
-                        score <= 750 ? '#2563eb' : '#16a34a'
-                      }
-                    >
-                      {score <= 560 ? 'Very Bad' :
-                       score <= 650 ? 'Bad' :
-                       score <= 700 ? 'Fair' :
-                       score <= 750 ? 'Good' : 'Excellent'}
-                    </text>
-                  </svg>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* FICO® Score */}
+          <SummaryCard
+            colors={colors}
+            icon={<BarChart3 className="h-7 w-7" color={colors.blue} />}
+            title="FICO® Score"
+          >
+            {scoreLoading ? (
+              <div className="text-sm text-muted-foreground">Loading score...</div>
+            ) : (
+              <div className="relative w-40 h-20">
+                <svg viewBox="0 0 100 50" className="w-full h-full">
+                  <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#E5E7EB" strokeWidth="8" strokeLinecap="round" />
+                  <path
+                    d="M10 50 A40 40 0 0 1 90 50"
+                    fill="none"
+                    stroke={
+                      score <= 560 ? '#EF4444' :
+                      score <= 650 ? '#F97316' :
+                      score <= 700 ? '#EAB308' :
+                      score <= 750 ? '#3B82F6' : '#22C55E'
+                    }
+                    strokeWidth="8"
+                    strokeDasharray={`${((score - 300) / 550) * 126} 126`}
+                    strokeLinecap="round"
+                  />
+                  <text x="50" y="32" textAnchor="middle" fontSize="14" fontWeight="800" fill="#111827">{score}</text>
+                  <text
+                    x="50"
+                    y="44"
+                    textAnchor="middle"
+                    fontSize="7"
+                    fontWeight="600"
+                    fill={
+                      score <= 560 ? '#dc2626' :
+                      score <= 650 ? '#ea580c' :
+                      score <= 700 ? '#ca8a04' :
+                      score <= 750 ? '#2563eb' : '#16a34a'
+                    }
+                  >
+                    {score <= 560 ? 'Very Bad'
+                      : score <= 650 ? 'Bad'
+                      : score <= 700 ? 'Fair'
+                      : score <= 750 ? 'Good' : 'Excellent'}
+                  </text>
+                </svg>
+              </div>
+            )}
+          </SummaryCard>
         </section>
 
         {/* Credit Approval Recommendation */}
@@ -734,121 +787,191 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
             <DocRow title="Slip Gaji" url={customer.slip || null} onOpen={openDoc} colors={colors} />
           </div>
         </section>
-        
-        {/* Actions (integrated approve/reject with reason modal) */}
-        <section className="flex flex-wrap gap-3 justify-end">
-          <button
-            disabled={actionLoading}
-            onClick={() => {
-              setReasonInput("");
-              setShowRejectModal(true);
-            }}
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl font-medium text-white shadow hover:bg-red-600 transition-colors"
-            style={{ background: '#dc2626' }}
-          >
-            <X className="h-5 w-5" /> Reject
-          </button>
-          <button
-            disabled={actionLoading}
-            onClick={() => {
-              setReasonInput("");
-              setShowApproveModal(true);
-            }}
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl font-medium text-white shadow hover:bg-green-600 transition-colors"
-            style={{ background: '#16a34a' }}
-          >
-            <Check className="h-5 w-5" /> Approve
-          </button>
-        </section>
-      {/* Approve Modal */}
-      <Dialog open={showApproveModal} onOpenChange={(v) => setShowApproveModal(v)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Alasan Persetujuan Kredit</DialogTitle>
-          </DialogHeader>
-          <div className="py-2">
-            <textarea
-              className="w-full border rounded p-2 min-h-[60px]"
-              placeholder="Masukkan alasan persetujuan..."
-              value={reasonInput}
-              onChange={e => setReasonInput(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end pt-2">
-            <Button
-              disabled={actionLoading || !reasonInput.trim()}
-              onClick={async () => {
-                setActionLoading(true);
-                try {
-                  const result = await approveKPRApplication(id, reasonInput.trim());
-                  setShowApproveModal(false);
-                  setApprovalDialog({ open: true, data: {
-                    application_id: id,
-                    customer_name: customer?.name ?? "",
-                    property_name: "-", // Fill with actual property if available
-                    address: customer?.address ?? "",
-                    price: loanAmount,
-                    status: "Approved",
-                    approval_date: new Date().toISOString(),
-                    reason: reasonInput.trim(),
-                    apiResult: result,
-                  }});
-                } catch (err: any) {
-                  setShowApproveModal(false);
-                  setApprovalDialog({ open: true, data: {
-                    application_id: id,
-                    customer_name: customer?.name ?? "",
-                    property_name: "-",
-                    address: customer?.address ?? "",
-                    price: loanAmount,
-                    status: "Error",
-                    approval_date: new Date().toISOString(),
-                    error: err?.message || "Gagal menyetujui pengajuan.",
-                    reason: reasonInput.trim(),
-                  }});
-                } finally {
-                  setActionLoading(false);
-                }
-              }}
-            >{actionLoading ? "Memproses..." : "Approve"}</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
-      {/* Reject Modal */}
-      <Dialog open={showRejectModal} onOpenChange={(v) => setShowRejectModal(v)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Alasan Penolakan Kredit</DialogTitle>
-          </DialogHeader>
-          <div className="py-2">
-            <textarea
-              className="w-full border rounded p-2 min-h-[60px]"
-              placeholder="Masukkan alasan penolakan..."
-              value={reasonInput}
-              onChange={e => setReasonInput(e.target.value)}
-            />
+        {/* Approval Progress + Actions */}
+        <section className="border rounded-2xl p-5 bg-white shadow-sm space-y-6" style={{ borderColor: colors.gray + '33' }}>
+          <h2 className="font-semibold text-black text-lg mb-2 flex items-center gap-2">
+            <Settings2 className="h-6 w-6 text-[#3FD8D4]" /> Approval Progress
+          </h2>
+
+          {/* Futuristic stepper */}
+          <div className="relative px-2 py-4">
+            <div className="absolute left-8 right-8 top-8 h-1 bg-gradient-to-r from-gray-200 via-[#3FD8D4]/40 to-gray-200 rounded-full" />
+            <div className="grid grid-cols-4 gap-4 relative">
+              {[0,1,2,3].map((i) => {
+                const state = nodeState(i);
+                const base = 'flex flex-col items-center text-center';
+                const isDone = state === 'done';
+                const isActive = state === 'active';
+                const dotCls = isDone ? 'bg-green-500 border-green-500' : isActive ? 'bg-[#3FD8D4] border-[#3FD8D4]' : 'bg-gray-200 border-gray-300';
+                const ringCls = isActive ? 'ring-4 ring-[#3FD8D4]/30' : '';
+                const title = i === 0 ? 'KPR Approval Assignment' : i === 1 ? 'Property Appraisal' : i === 2 ? 'Credit Analysis' : 'Final Approval';
+                const wf = i > 0 ? sortedWorkflows[i - 1] : undefined;
+                return (
+                  <div key={i} className={`${base} px-2`}>
+                    <div className={`w-6 h-6 rounded-full border ${dotCls} ${ringCls}`} />
+                    <div className="mt-3 text-sm font-semibold text-gray-900">{title}</div>
+                    <div className="mt-2 w-full max-w-[260px] rounded-xl border p-3 shadow-sm bg-white">
+                      {i === 0 ? (
+                        <div className="space-y-2 text-xs text-gray-700">
+                          <div className="flex justify-between"><span className="text-muted-foreground">PIC</span><span className="font-medium">Super Admin</span></div>
+                          <div className="border-t pt-2">
+                            <div className="font-medium mb-1">Name Assign</div>
+                            {sortedWorkflows.slice(0,3).map((w, idx) => (
+                              <div key={w.workflowId} className="flex justify-between">
+                                <span className="text-muted-foreground">Step {idx+1}</span>
+                                <span className="font-medium truncate max-w-[60%] text-right">{nameOrEmail(w)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 text-xs text-gray-700">
+                          <div className="flex justify-between"><span className="text-muted-foreground">PIC</span><span className="font-medium truncate max-w-[60%] text-right">{nameOrEmail(wf)}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span className="font-medium truncate max-w-[60%] text-right">{wf?.assignedToEmail ?? '-'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Status</span>
+                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${statusBadge(wf?.status)}`}>{(wf?.status ?? 'PENDING')}</span>
+                          </div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Note</span><span className="font-medium truncate max-w-[60%] text-right">{wf?.approvalNotes ?? wf?.rejectionReason ?? '-'}</span></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex justify-end pt-2">
-            <Button
-              disabled={actionLoading || !reasonInput.trim()}
-              onClick={async () => {
-                setActionLoading(true);
-                try {
-                  const result = await rejectKPRApplication(id, reasonInput.trim());
-                  setShowRejectModal(false);
-                  setRejectDialog({ open: true, summary: result?.message || "Pengajuan kredit telah ditolak." });
-                } catch (err: any) {
-                  setShowRejectModal(false);
-                  setRejectDialog({ open: true, summary: err?.message || "Gagal menolak pengajuan." });
-                } finally {
-                  setActionLoading(false);
-                }
+
+          {/* Actions under tracker */}
+          <div className="flex flex-wrap gap-3 justify-end pt-2">
+            <button
+              disabled={actionLoading}
+              onClick={() => {
+                setReasonInput("");
+                setShowRejectModal(true);
               }}
-            >{actionLoading ? "Memproses..." : "Reject"}</Button>
+              className="flex items-center gap-2 px-5 py-3 rounded-2xl font-medium text-white shadow hover:bg-red-600 transition-colors"
+              style={{ background: '#dc2626' }}
+            >
+              <X className="h-5 w-5" /> Reject
+            </button>
+            <button
+              disabled={actionLoading}
+              onClick={() => {
+                setReasonInput("");
+                setShowApproveModal(true);
+              }}
+              className="flex items-center gap-2 px-5 py-3 rounded-2xl font-medium text-white shadow hover:bg-green-600 transition-colors"
+              style={{ background: '#16a34a' }}
+            >
+              <Check className="h-5 w-5" /> Approve
+            </button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </section>
+
+        {/* Approve Modal */}
+        <Dialog open={showApproveModal} onOpenChange={(v) => setShowApproveModal(v)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Alasan Persetujuan Kredit</DialogTitle>
+            </DialogHeader>
+            <div className="mb-3 grid grid-cols-1 gap-2 rounded-xl border p-3 bg-gray-50">
+              <SummaryRow label="KPR ID" value={`${(application as any)?.applicationNumber ?? id}`} />
+              <SummaryRow label="KPR Price" value={formatIDR((application as any)?.loanAmount ?? loanAmount)} />
+              <SummaryRow label="Tenor" value={`${(application as any)?.loanTermYears ?? jangkaWaktu} tahun`} />
+              <SummaryRow label="KPR Rate" value={`${(application as any)?.kprRateInfo?.rateName ?? '-'}`} />
+              <SummaryRow label="Property" value={`${(application as any)?.propertyInfo?.title ?? '-'}`} />
+            </div>
+            <div className="py-2">
+              <textarea
+                className="w-full border rounded p-2 min-h-[60px]"
+                placeholder="Masukkan alasan persetujuan..."
+                value={reasonInput}
+                onChange={e => setReasonInput(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button
+                disabled={actionLoading || !reasonInput.trim()}
+                onClick={async () => {
+                  setActionLoading(true);
+                  try {
+                    const result = await approveKPRApplication(id, reasonInput.trim());
+                    setShowApproveModal(false);
+                    setApprovalDialog({ open: true, data: {
+                      application_id: id,
+                      customer_name: customer?.name ?? "",
+                      property_name: "-",
+                      address: customer?.address ?? "",
+                      price: loanAmount,
+                      status: "Approved",
+                      approval_date: new Date().toISOString(),
+                      reason: reasonInput.trim(),
+                      apiResult: result,
+                    }});
+                  } catch (err: any) {
+                    setShowApproveModal(false);
+                    setApprovalDialog({ open: true, data: {
+                      application_id: id,
+                      customer_name: customer?.name ?? "",
+                      property_name: "-",
+                      address: customer?.address ?? "",
+                      price: loanAmount,
+                      status: "Error",
+                      approval_date: new Date().toISOString(),
+                      error: err?.message || "Gagal menyetujui pengajuan.",
+                      reason: reasonInput.trim(),
+                    }});
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+              >{actionLoading ? "Memproses..." : "Approve"}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reject Modal */}
+        <Dialog open={showRejectModal} onOpenChange={(v) => setShowRejectModal(v)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Alasan Penolakan Kredit</DialogTitle>
+            </DialogHeader>
+            <div className="mb-3 grid grid-cols-1 gap-2 rounded-xl border p-3 bg-gray-50">
+              <SummaryRow label="KPR ID" value={`${(application as any)?.applicationNumber ?? id}`} />
+              <SummaryRow label="KPR Price" value={formatIDR((application as any)?.loanAmount ?? loanAmount)} />
+              <SummaryRow label="Tenor" value={`${(application as any)?.loanTermYears ?? jangkaWaktu} tahun`} />
+              <SummaryRow label="KPR Rate" value={`${(application as any)?.kprRateInfo?.rateName ?? '-'}`} />
+              <SummaryRow label="Property" value={`${(application as any)?.propertyInfo?.title ?? '-'}`} />
+            </div>
+            <div className="py-2">
+              <textarea
+                className="w-full border rounded p-2 min-h-[60px]"
+                placeholder="Masukkan alasan penolakan..."
+                value={reasonInput}
+                onChange={e => setReasonInput(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button
+                disabled={actionLoading || !reasonInput.trim()}
+                onClick={async () => {
+                  setActionLoading(true);
+                  try {
+                    const result = await rejectKPRApplication(id, reasonInput.trim());
+                    setShowRejectModal(false);
+                    setRejectDialog({ open: true, summary: result?.message || "Pengajuan kredit telah ditolak." });
+                  } catch (err: any) {
+                    setShowRejectModal(false);
+                    setRejectDialog({ open: true, summary: err?.message || "Gagal menolak pengajuan." });
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+              >{actionLoading ? "Memproses..." : "Reject"}</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
 
       {/* Document viewer */}
@@ -886,23 +1009,45 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
           </DialogContent>
         </Dialog>
       )}
-
-      {/*
-        // If you don't have ViewDocumentDialog, use this quick fallback:
-        <Dialog open={docViewer.open} onOpenChange={(v) => (v ? null : closeDoc())}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader><DialogTitle>{docViewer.title}</DialogTitle></DialogHeader>
-            {docViewer.url ? (
-              <img src={docViewer.url} alt={docViewer.title} className="w-full h-auto rounded" />
-            ) : (
-              <p className="text-sm text-muted-foreground">Dokumen belum tersedia.</p>
-            )}
-          </DialogContent>
-        </Dialog>
-      */}
     </div>
   );
 }
+
+/* ---------- Reusable SummaryCard ---------- */
+function SummaryCard({
+  colors,
+  icon,
+  title,
+  children,
+}: {
+  colors: { blue: string; gray: string; orange: string };
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="p-5 rounded-2xl shadow-sm border h-full flex flex-col items-center text-center"
+      style={{ borderColor: colors.gray + '33' }}
+    >
+      {/* Header: icon + title perfectly centered */}
+      <div className="flex items-center justify-center gap-2 h-8">
+        {/* make icon not affect baseline */}
+        <div className="[&_svg]:block shrink-0 flex items-center justify-center">
+          {icon}
+        </div>
+        <span className="text-sm font-semibold text-gray-700 leading-none align-middle mb-0">
+          {title}
+        </span>
+      </div>
+
+      <div className="mt-3 w-full flex-1 flex flex-col items-center justify-center">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 
 /* ---------- Helpers ---------- */
 
@@ -919,9 +1064,7 @@ function escapeHtml(str: string) {
 function toHtmlWithBold(md: string | undefined | null): string {
   if (!md) return "";
   const escaped = escapeHtml(md);
-  // Replace **text** with <strong>text</strong>
   const withBold = escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  // Convert double spaces/new lines to <br/>
   return withBold.replace(/\n/g, "<br/>");
 }
 
@@ -934,17 +1077,17 @@ function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail 
   return {
     id: String((ui as any).userId ?? d.id ?? d.applicationId ?? id),
     name: d.applicantName ?? d.fullName ?? ui.fullName ?? 'Tidak Diketahui',
-    username: d.username ?? ui['username' as keyof typeof ui] as any ?? '-', // optional
-    email: d.applicantEmail ?? d.email ?? (ui as any).email ?? 'unknown@example.com',   // <-- add ui.email
+    username: d.username ?? (ui as any).username ?? '-',
+    email: d.applicantEmail ?? d.email ?? (ui as any).email ?? 'unknown@example.com',
     phone: d.applicantPhone ?? d.phone ?? (ui as any).phone ?? '-',
     nik: d.nik ?? (ui as any).nik ?? '-',
     npwp: d.npwp ?? (ui as any).npwp ?? '-',
     birth_place: d.birthPlace ?? (ui as any).birthPlace ?? '-',
-    birth_date: (d as any).birthDate ?? (ui as any).birthDate ?? '-',        // <-- add ui.birthDate
+    birth_date: (d as any).birthDate ?? (ui as any).birthDate ?? '-',
     gender: d.gender ?? (ui as any).gender ?? '-',
-    marital_status: (d as any).marital_status ?? (ui as any).maritalStatus ?? '-', // keep both shapes
+    marital_status: (d as any).marital_status ?? (ui as any).maritalStatus ?? '-',
     address: d.address ?? (ui as any).address ?? '-',
-    sub_district: (d as any).sub_district ?? '-', // (not present in sample; keep safe)
+    sub_district: (d as any).sub_district ?? '-',
     district: (d as any).district ?? '-',
     city: d.city ?? (ui as any).city ?? '-',
     province: d.province ?? (ui as any).province ?? '-',
@@ -967,7 +1110,6 @@ function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail 
     slip: slipDoc?.filePath ?? null,
   };
 }
-
 
 function getCreditStatusColor(status?: string) {
   switch (status) {
@@ -1139,4 +1281,13 @@ function buildMultiSegmentSchedule(principal: number, segments: { start: number;
     }
   }
   return rows;
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right max-w-[60%] truncate">{value}</span>
+    </div>
+  );
 }

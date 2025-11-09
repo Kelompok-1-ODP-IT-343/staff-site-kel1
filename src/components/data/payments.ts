@@ -1,15 +1,15 @@
 export type PaymentDetail = {
-  id: string
-  customerName: string
-  loanAmount: string
-  tenor: string
-  rateType: string
-  monthlyInstallment: string
-  nextPayment: string
-  lastPaymentStatus: string
-  dueDate: string
-  bank: string
-}
+  id: string;
+  customerName: string;
+  loanAmount: string;
+  tenor: string;
+  rateType: string;
+  monthlyInstallment: string;
+  nextPayment: string;
+  lastPaymentStatus: string;
+  dueDate: string;
+  bank: string;
+};
 
 export const dummyPayments: PaymentDetail[] = [
   {
@@ -48,4 +48,4 @@ export const dummyPayments: PaymentDetail[] = [
     dueDate: "15 setiap bulan",
     bank: "BNI",
   },
-]
+];

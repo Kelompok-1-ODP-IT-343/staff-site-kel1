@@ -1,16 +1,16 @@
 // app/(dashboard)/approval-table.tsx
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
   useReactTable,
-} from "@tanstack/react-table"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+} from "@tanstack/react-table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -18,24 +18,24 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { useRouter } from "next/navigation"
-import { Calculator, Settings2 } from "lucide-react"
+} from "@/components/ui/table";
+import { useRouter } from "next/navigation";
+import { Calculator, Settings2 } from "lucide-react";
 
 // ⬇️ your existing API
-import { getKPRApplicationsProgress } from "@/lib/coreApi"
+import { getKPRApplicationsProgress } from "@/lib/coreApi";
 
 // ========= Helpers =========
 type UnifiedRow = {
-  id: number
-  aplikasiKode: string            // ID Pengajuan
-  applicantName: string
-  applicantEmail?: string
-  applicantPhone?: string
-  namaProperti?: string
-  tanggal?: string | null         // ISO string preferred
-  status?: string                  // Status aplikasi
-}
+  id: number;
+  aplikasiKode: string; // ID Pengajuan
+  applicantName: string;
+  applicantEmail?: string;
+  applicantPhone?: string;
+  namaProperti?: string;
+  tanggal?: string | null; // ISO string preferred
+  status?: string; // Status aplikasi
+};
 
 // Best-effort normalization from any API item to UnifiedRow
 function normalizeItem(item: any): UnifiedRow {
@@ -46,20 +46,9 @@ function normalizeItem(item: any): UnifiedRow {
       item.applicationNumber ??
       item.application_code ??
       "-",
-    applicantName:
-      item.applicantName ??
-      item.name ??
-      item.fullName ??
-      "-",
-    applicantEmail:
-      item.applicantEmail ??
-      item.email ??
-      "",
-    applicantPhone:
-      item.applicantPhone ??
-      item.phone ??
-      item.phoneNumber ??
-      "",
+    applicantName: item.applicantName ?? item.name ?? item.fullName ?? "-",
+    applicantEmail: item.applicantEmail ?? item.email ?? "",
+    applicantPhone: item.applicantPhone ?? item.phone ?? item.phoneNumber ?? "",
     namaProperti:
       item.namaProperti ??
       item.propertyName ??
@@ -72,80 +61,77 @@ function normalizeItem(item: any): UnifiedRow {
       item.createdAt ??
       item.reviewedAt ??
       null,
-    status:
-      item.status ??
-      item.applicationStatus ??
-      "",
-  }
+    status: item.status ?? item.applicationStatus ?? "",
+  };
 }
 
 function formatDate(dateString?: string | null) {
-  if (!dateString) return "-"
-  const d = new Date(dateString)
-  if (isNaN(d.getTime())) return "-"
+  if (!dateString) return "-";
+  const d = new Date(dateString);
+  if (isNaN(d.getTime())) return "-";
   return d.toLocaleDateString("id-ID", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  })
+  });
 }
 
 // ========= Component =========
 export default function ApprovalTable() {
-  const router = useRouter()
-  const [raw, setRaw] = React.useState<any[]>([])
-  const [rows, setRows] = React.useState<UnifiedRow[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-  const [query, setQuery] = React.useState("")
+  const router = useRouter();
+  const [raw, setRaw] = React.useState<any[]>([]);
+  const [rows, setRows] = React.useState<UnifiedRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
-    ;(async () => {
+    (async () => {
       try {
-        setLoading(true)
-        setError(null)
-        const res = await getKPRApplicationsProgress()
+        setLoading(true);
+        setError(null);
+        const res = await getKPRApplicationsProgress();
         if (res?.success) {
-          const list: any[] = Array.isArray(res.data) ? res.data : []
-          setRaw(list)
+          const list: any[] = Array.isArray(res.data) ? res.data : [];
+          setRaw(list);
           // Filter to show only PENDING status applications
-          const normalizedList = list.map(normalizeItem)
+          const normalizedList = list.map(normalizeItem);
           const pendingOnly = normalizedList.filter((item) => {
-            const status = (item.status ?? "").toUpperCase()
+            const status = (item.status ?? "").toUpperCase();
             return status?.toUpperCase() !== "SUBMITTED";
-          })
-          setRows(pendingOnly)
+          });
+          setRows(pendingOnly);
         } else {
-          setError(res?.message || "Failed to fetch KPR applications")
+          setError(res?.message || "Failed to fetch KPR applications");
         }
       } catch (e) {
-        console.error(e)
-        setError("Failed to fetch KPR applications")
+        console.error(e);
+        setError("Failed to fetch KPR applications");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    })()
-  }, [])
+    })();
+  }, []);
 
   // Filter: email if available, else by aplikasiKode
   const filteredData = React.useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return rows
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
     return rows.filter((r) => {
-      const email = (r.applicantEmail ?? "").toLowerCase()
-      const kode = (r.aplikasiKode ?? "").toLowerCase()
-      return email.includes(q) || kode.includes(q)
-    })
-  }, [rows, query])
+      const email = (r.applicantEmail ?? "").toLowerCase();
+      const kode = (r.aplikasiKode ?? "").toLowerCase();
+      return email.includes(q) || kode.includes(q);
+    });
+  }, [rows, query]);
 
   const handleActionClick = (row: UnifiedRow) => {
     // Pick one route style; adjust if your detail route differs:
     // Option A: detail by id
-    router.push(`/dashboard/detail/${row.id}`)
+    router.push(`/dashboard/detail/${row.id}`);
 
     // Option B (alternative): simulation page with query param
     // router.push(`/dashboard/simulate?id=${row.id}`)
-  }
+  };
 
   // === Columns (unified) ===
   const columns = React.useMemo<ColumnDef<UnifiedRow>[]>(
@@ -153,12 +139,16 @@ export default function ApprovalTable() {
       {
         accessorKey: "aplikasiKode",
         header: () => <div className="font-semibold">ID Pengajuan</div>,
-        cell: ({ row }) => <div className="capitalize">{row.getValue("aplikasiKode")}</div>,
+        cell: ({ row }) => (
+          <div className="capitalize">{row.getValue("aplikasiKode")}</div>
+        ),
       },
       {
         accessorKey: "applicantName",
         header: () => <div className="font-semibold">Name</div>,
-        cell: ({ row }) => <div className="capitalize">{row.getValue("applicantName")}</div>,
+        cell: ({ row }) => (
+          <div className="capitalize">{row.getValue("applicantName")}</div>
+        ),
       },
       {
         accessorKey: "applicantPhone",
@@ -172,13 +162,19 @@ export default function ApprovalTable() {
       {
         accessorKey: "namaProperti",
         header: () => <div className="font-semibold">Nama Properti</div>,
-        cell: ({ row }) => <div className="font-medium">{row.getValue("namaProperti") || "-"}</div>,
+        cell: ({ row }) => (
+          <div className="font-medium">
+            {row.getValue("namaProperti") || "-"}
+          </div>
+        ),
       },
       {
         accessorKey: "tanggal",
         header: () => <div className="font-semibold">Tanggal</div>,
         cell: ({ row }) => (
-          <div className="text-center">{formatDate(row.getValue("tanggal") as string | null)}</div>
+          <div className="text-center">
+            {formatDate(row.getValue("tanggal") as string | null)}
+          </div>
         ),
       },
       {
@@ -189,7 +185,7 @@ export default function ApprovalTable() {
           </div>
         ),
         cell: ({ row }) => {
-          const item = row.original
+          const item = row.original;
           return (
             <div className="flex justify-center">
               <Button
@@ -203,28 +199,30 @@ export default function ApprovalTable() {
                 Action
               </Button>
             </div>
-          )
+          );
         },
       },
     ],
-    []
-  )
+    [],
+  );
 
   const table = useReactTable({
     data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-  })
+  });
 
   if (loading) {
     return (
       <div className="w-full">
         <div className="flex items-center justify-center py-8">
-          <div className="text-muted-foreground">Loading KPR applications...</div>
+          <div className="text-muted-foreground">
+            Loading KPR applications...
+          </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -234,7 +232,7 @@ export default function ApprovalTable() {
           <div className="text-red-500">Error: {error}</div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -270,7 +268,10 @@ export default function ApprovalTable() {
                       ${header.column.id === "action" ? "text-center" : "text-center"}
                     `}
                   >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext(),
+                    )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -293,14 +294,18 @@ export default function ApprovalTable() {
                     <TableCell
                       key={cell.id}
                       style={{
-                        textAlign: cell.column.id === "action" ? "center" : "left",
+                        textAlign:
+                          cell.column.id === "action" ? "center" : "left",
                       }}
                       className={`
                         py-3 px-4 text-sm
                         ${cell.column.id === "applicantEmail" ? "text-muted-foreground" : "font-medium"}
                       `}
                     >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -339,5 +344,5 @@ export default function ApprovalTable() {
         </Button>
       </div>
     </div>
-  )
+  );
 }

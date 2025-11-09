@@ -1,19 +1,19 @@
 export type DeveloperDetail = {
-  id: string
-  company_name: string
-  contact_person: string
-  phone: string
-  email: string
-  website: string
-  address: string
-  city: string
-  province: string
-  postal_code: string
-  established_year: string
-  description: string
-  partnership_level: string
-  logo: string
-}
+  id: string;
+  company_name: string;
+  contact_person: string;
+  phone: string;
+  email: string;
+  website: string;
+  address: string;
+  city: string;
+  province: string;
+  postal_code: string;
+  established_year: string;
+  description: string;
+  partnership_level: string;
+  logo: string;
+};
 
 export const developers: DeveloperDetail[] = [
   {
@@ -28,7 +28,8 @@ export const developers: DeveloperDetail[] = [
     province: "DKI Jakarta",
     postal_code: "12940",
     established_year: "1981",
-    description: "Salah satu pengembang properti terbesar di Indonesia dengan berbagai proyek residensial dan komersial.",
+    description:
+      "Salah satu pengembang properti terbesar di Indonesia dengan berbagai proyek residensial dan komersial.",
     partnership_level: "Platinum",
     logo: "/images/developers/ciputra.png",
   },
@@ -44,7 +45,8 @@ export const developers: DeveloperDetail[] = [
     province: "Banten",
     postal_code: "15310",
     established_year: "1988",
-    description: "Pengembang utama BSD City dan berbagai proyek premium lainnya.",
+    description:
+      "Pengembang utama BSD City dan berbagai proyek premium lainnya.",
     partnership_level: "Gold",
     logo: "/images/developers/sinarmas.png",
   },
@@ -60,8 +62,9 @@ export const developers: DeveloperDetail[] = [
     province: "DKI Jakarta",
     postal_code: "10220",
     established_year: "1975",
-    description: "Pengembang properti terkemuka dengan proyek ikonik di Jakarta dan Surabaya.",
+    description:
+      "Pengembang properti terkemuka dengan proyek ikonik di Jakarta dan Surabaya.",
     partnership_level: "Silver",
     logo: "/images/developers/intiland.png",
   },
-]
+];

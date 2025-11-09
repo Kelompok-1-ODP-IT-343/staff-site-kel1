@@ -3,7 +3,6 @@ import axios, { AxiosHeaders } from "axios";
 // Axios instance untuk seluruh request ke API Satu Atap
 const coreApi = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:18080/api/v1",
-  // baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:18080/api/v1",
   timeout: 150000,
   headers: {
     "Content-Type": "application/json",
@@ -21,7 +20,9 @@ export const refreshClient = axios.create({
 
 // Axios instance untuk Credit Score API (Java service)
 const creditScoreApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_CREDIT_SCORE_API_URL || "http://localhost:9009/api/v1",
+  baseURL:
+    process.env.NEXT_PUBLIC_CREDIT_SCORE_API_URL ||
+    "http://localhost:9009/api/v1",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -45,14 +46,16 @@ function getCookie(name: string): string | null {
 
 function setCookieMaxAge(name: string, value: string, maxAgeSeconds: number) {
   if (typeof document === "undefined") return;
-  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+  const isHttps =
+    typeof window !== "undefined" && window.location.protocol === "https:";
   const encoded = encodeURIComponent(value);
   document.cookie = `${name}=${encoded}; max-age=${maxAgeSeconds}; path=/; ${isHttps ? "secure; " : ""}SameSite=Lax`;
 }
 
 function deleteCookie(name: string) {
   if (typeof document === "undefined") return;
-  const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+  const isHttps =
+    typeof window !== "undefined" && window.location.protocol === "https:";
   document.cookie = `${name}=; max-age=0; path=/; ${isHttps ? "secure; " : ""}SameSite=Lax`;
 }
 
@@ -69,7 +72,10 @@ try {
 coreApi.interceptors.request.use((config) => {
   try {
     if (typeof window !== "undefined") {
-      const headers = config.headers instanceof AxiosHeaders ? config.headers : new AxiosHeaders(config.headers as any);
+      const headers =
+        config.headers instanceof AxiosHeaders
+          ? config.headers
+          : new AxiosHeaders(config.headers as any);
       const token = getCookie("token");
       if (token) {
         const authHeader = `Bearer ${token}`;
@@ -91,7 +97,10 @@ coreApi.interceptors.request.use((config) => {
 creditScoreApi.interceptors.request.use((config) => {
   try {
     if (typeof window !== "undefined") {
-      const headers = config.headers instanceof AxiosHeaders ? config.headers : new AxiosHeaders(config.headers as any);
+      const headers =
+        config.headers instanceof AxiosHeaders
+          ? config.headers
+          : new AxiosHeaders(config.headers as any);
       const token = getCookie("token");
       if (token) {
         const authHeader = `Bearer ${token}`;
@@ -126,10 +135,13 @@ const processQueue = (error: any, token: string | null = null) => {
 coreApi.interceptors.response.use(
   (response) => response,
   async (error) => {
-  const originalRequest = error.config;
+    const originalRequest = error.config;
 
     // If error is 401/403 and we haven't tried to refresh the token yet
-    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
+    if (
+      (error.response?.status === 401 || error.response?.status === 403) &&
+      !originalRequest._retry
+    ) {
       if (isRefreshing) {
         // If refresh is already in progress, queue this request
         try {
@@ -137,7 +149,10 @@ coreApi.interceptors.response.use(
             failedQueue.push({ resolve, reject });
           });
           if (originalRequest.headers instanceof AxiosHeaders) {
-            (originalRequest.headers as AxiosHeaders).set("Authorization", `Bearer ${token}`);
+            (originalRequest.headers as AxiosHeaders).set(
+              "Authorization",
+              `Bearer ${token}`,
+            );
           } else {
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers["Authorization"] = `Bearer ${token}`;
@@ -153,20 +168,21 @@ coreApi.interceptors.response.use(
 
       try {
         // Get the refresh token from cookie
-        const refreshToken = typeof window !== "undefined" ? getCookie("refreshToken") : null;
+        const refreshToken =
+          typeof window !== "undefined" ? getCookie("refreshToken") : null;
         if (!refreshToken) {
           throw new Error("No refresh token available");
         }
 
         // Call refresh token endpoint via dedicated client
-        const response = await refreshClient.post(
-          "/auth/refresh",
-          { refreshToken }
-        );
+        const response = await refreshClient.post("/auth/refresh", {
+          refreshToken,
+        });
 
         const respData = response?.data ?? {};
         const token = respData?.data?.token ?? respData?.token;
-        const newRefresh = respData?.data?.refreshToken ?? respData?.refreshToken;
+        const newRefresh =
+          respData?.data?.refreshToken ?? respData?.refreshToken;
         const isOk = Boolean(token);
         if (isOk) {
           if (typeof window !== "undefined") {
@@ -179,7 +195,10 @@ coreApi.interceptors.response.use(
 
           // Update authorization header
           if (originalRequest.headers instanceof AxiosHeaders) {
-            (originalRequest.headers as AxiosHeaders).set("Authorization", `Bearer ${token}`);
+            (originalRequest.headers as AxiosHeaders).set(
+              "Authorization",
+              `Bearer ${token}`,
+            );
           } else {
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers["Authorization"] = `Bearer ${token}`;
@@ -217,7 +236,7 @@ coreApi.interceptors.response.use(
     // No fallback logout for 401/403 here; only refresh failure triggers logout.
 
     return Promise.reject(error);
-  }
+  },
 );
 
 // Apply same refresh logic for creditScoreApi so requests retry after refresh
@@ -225,14 +244,20 @@ creditScoreApi.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if ((error.response?.status === 401 || error.response?.status === 403) && !originalRequest._retry) {
+    if (
+      (error.response?.status === 401 || error.response?.status === 403) &&
+      !originalRequest._retry
+    ) {
       if (isRefreshing) {
         try {
           const token = await new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
           });
           if (originalRequest.headers instanceof AxiosHeaders) {
-            (originalRequest.headers as AxiosHeaders).set("Authorization", `Bearer ${token}`);
+            (originalRequest.headers as AxiosHeaders).set(
+              "Authorization",
+              `Bearer ${token}`,
+            );
           } else {
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers["Authorization"] = `Bearer ${token}`;
@@ -245,20 +270,28 @@ creditScoreApi.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
       try {
-        const refreshToken = typeof window !== "undefined" ? getCookie("refreshToken") : null;
+        const refreshToken =
+          typeof window !== "undefined" ? getCookie("refreshToken") : null;
         if (!refreshToken) throw new Error("No refresh token available");
-        const response = await refreshClient.post("/auth/refresh", { refreshToken });
+        const response = await refreshClient.post("/auth/refresh", {
+          refreshToken,
+        });
         const respData = response?.data ?? {};
         const token = respData?.data?.token ?? respData?.token;
-        const newRefresh = respData?.data?.refreshToken ?? respData?.refreshToken;
+        const newRefresh =
+          respData?.data?.refreshToken ?? respData?.refreshToken;
         const isOk = Boolean(token);
         if (isOk) {
           if (typeof window !== "undefined") {
             setCookieMaxAge("token", token, 15 * 60);
-            if (newRefresh) setCookieMaxAge("refreshToken", newRefresh, 24 * 60 * 60);
+            if (newRefresh)
+              setCookieMaxAge("refreshToken", newRefresh, 24 * 60 * 60);
           }
           if (originalRequest.headers instanceof AxiosHeaders) {
-            (originalRequest.headers as AxiosHeaders).set("Authorization", `Bearer ${token}`);
+            (originalRequest.headers as AxiosHeaders).set(
+              "Authorization",
+              `Bearer ${token}`,
+            );
           } else {
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers["Authorization"] = `Bearer ${token}`;
@@ -287,7 +320,7 @@ creditScoreApi.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default coreApi;
@@ -307,7 +340,9 @@ export const getUserProfile = async () => {
 export const getKPRApplicationsProgress = async () => {
   try {
     // Verifikator endpoint sesuai spesifikasi backend
-    const response = await coreApi.get("/kpr-applications/verifikator/progress");
+    const response = await coreApi.get(
+      "/kpr-applications/verifikator/progress",
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching KPR applications progress:", error);
@@ -325,12 +360,15 @@ export const getKPRApplicationDetail = async (applicationId: string) => {
   }
 };
 
-export const approveKPRApplication = async (applicationId: string, approvalNotes: string) => {
+export const approveKPRApplication = async (
+  applicationId: string,
+  approvalNotes: string,
+) => {
   try {
     const response = await coreApi.post(`/approval/verifikator`, {
       isApproved: true,
       reason: approvalNotes || "",
-      applicationId: parseInt(applicationId)
+      applicationId: parseInt(applicationId),
     });
     return response.data;
   } catch (error) {
@@ -339,12 +377,15 @@ export const approveKPRApplication = async (applicationId: string, approvalNotes
   }
 };
 
-export const rejectKPRApplication = async (applicationId: string, rejectionReason: string) => {
+export const rejectKPRApplication = async (
+  applicationId: string,
+  rejectionReason: string,
+) => {
   try {
     const response = await coreApi.post(`/approval/verifikator`, {
       isApproved: false,
       reason: rejectionReason || "",
-      applicationId: parseInt(applicationId)
+      applicationId: parseInt(applicationId),
     });
     return response.data;
   } catch (error) {
@@ -356,7 +397,7 @@ export const rejectKPRApplication = async (applicationId: string, rejectionReaso
 export const getCreditScore = async (userId: string) => {
   try {
     const response = await creditScoreApi.post(`/credit-score`, {
-      user_id: userId
+      user_id: userId,
     });
     return response.data;
   } catch (error) {
@@ -384,7 +425,10 @@ export const getCreditRecommendation = async (applicationId: string) => {
       },
     };
 
-    const response = await creditScoreApi.post(`/recommendation-system`, requestBody);
+    const response = await creditScoreApi.post(
+      `/recommendation-system`,
+      requestBody,
+    );
     return response.data;
   } catch (error) {
     console.error("Error fetching credit recommendation:", error);
