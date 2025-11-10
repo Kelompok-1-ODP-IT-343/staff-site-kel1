@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   Sidebar,
@@ -6,11 +6,11 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+  useSidebar,
+} from "@/components/ui/sidebar";
 import {
   Home,
   CheckSquare,
@@ -19,10 +19,11 @@ import {
   Bell,
   HelpCircle,
   LogOut,
-  Settings
-} from "lucide-react"
-import { useRouter } from "next/navigation"
-import Image from "next/image"
+  Settings,
+  User,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -30,18 +31,17 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
-import { useState, useEffect } from "react"
-import { getUserProfile } from "@/lib/coreApi"
+} from "@/components/ui/dropdown-menu";
+import { useState, useEffect } from "react";
+import { getUserProfile } from "@/lib/coreApi";
+import { logout } from "@/services/auth";
 
-// Menu dengan ikon sesuai nama
+// Menu items
 const menuItems = [
   { name: "Home", icon: Home },
   { name: "Approval KPR", icon: CheckSquare },
-  { name: "Approval History", icon: ListTodo }
-]
-
-import { logout } from "@/services/auth"
+  { name: "Approval History", icon: ListTodo },
+];
 
 interface UserProfile {
   id: number;
@@ -63,44 +63,55 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ activeMenu, onSelect, onLogout }: AppSidebarProps) {
-  const router = useRouter()
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const router = useRouter();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Collapsed state from shadcn sidebar
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const response = await getUserProfile()
-        if (response.success) {
-          setUserProfile(response.data)
-        }
-      } catch (error) {
-        console.error("Failed to fetch user profile:", error)
+        const response = await getUserProfile();
+        if (response.success) setUserProfile(response.data);
+      } catch (err) {
+        console.error("Failed to fetch user profile", err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-
-    fetchUserProfile()
-  }, [])
+    };
+    fetchUserProfile();
+  }, []);
 
   return (
     <Sidebar collapsible="icon">
-      {/* === HEADER LOGO === */}
-      <div className="flex items-center justify-center py-6">
+      {/* Header with dynamic logo */}
+      <div className="flex flex-col items-center justify-center py-6">
         <Image
           src="/sidebar_satuatap.png"
           alt="Satu Atap"
-          width={140}
-          height={40}
-          className="object-contain"
+          width={isCollapsed ? 28 : 140}
+          height={isCollapsed ? 28 : 40}
+          className="object-contain transition-all duration-200"
+          priority
         />
+        {isCollapsed ? (
+          <div className="mt-2" title="For Staff">
+            <User className="h-5 w-5" aria-label="For Staff" />
+          </div>
+        ) : (
+          <div className="mt-2 flex items-center gap-2 whitespace-nowrap">
+            <User className="h-5 w-5" aria-hidden="true" />
+            <span className="text-xl font-bold tracking-wide">For Staff</span>
+          </div>
+        )}
       </div>
 
-      {/* === MENU === */}
+      {/* Menu */}
       <SidebarContent>
         <SidebarGroup>
-          {/* <SidebarGroupLabel>Menu</SidebarGroupLabel> */}
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -108,17 +119,15 @@ export function AppSidebar({ activeMenu, onSelect, onLogout }: AppSidebarProps) 
                   <SidebarMenuButton asChild>
                     <button
                       onClick={() => onSelect(item.name)}
-                      className={`flex items-center gap-3 w-full px-4 py-2 rounded-lg transition-all duration-150
-                        ${
-                          activeMenu === item.name
-                            ? "bg-gray-200 text-gray-900 font-semibold shadow-sm scale-[1.02]"
-                            : "text-gray-600 hover:bg-gray-100 hover:scale-[1.01]"
-                        }`}
+                      className={`flex items-center gap-3 w-full px-4 py-2 rounded-lg transition-all duration-150 ${
+                        activeMenu === item.name
+                          ? "bg-gray-200 text-gray-900 font-semibold shadow-sm scale-[1.02]"
+                          : "text-gray-600 hover:bg-gray-100 hover:scale-[1.01]"
+                      }`}
                     >
                       <item.icon className="h-8 w-8" />
                       <span className="text-[16px]">{item.name}</span>
                     </button>
-
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -127,7 +136,7 @@ export function AppSidebar({ activeMenu, onSelect, onLogout }: AppSidebarProps) 
         </SidebarGroup>
       </SidebarContent>
 
-      {/* === PROFILE DROPDOWN === */}
+      {/* Profile dropdown */}
       <SidebarFooter className="pb-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -152,65 +161,48 @@ export function AppSidebar({ activeMenu, onSelect, onLogout }: AppSidebarProps) 
               <ChevronDown className="h-4 w-4 text-gray-400 flex-shrink-0" />
             </button>
           </DropdownMenuTrigger>
-
-          <DropdownMenuContent side="right" align="start" className="w-56">
-            <DropdownMenuLabel>
-              <div className="flex items-start gap-2">
+          <DropdownMenuContent side="right" align="start" className="w-64 p-0">
+            <DropdownMenuLabel className="px-4 py-3">
+              <div className="flex items-center gap-3">
                 <Image
                   src="/images/avatars/cecilion.png"
                   alt="Profile"
-                  width={36}
-                  height={36}
-                  className="rounded-full"
+                  width={40}
+                  height={40}
+                  className="rounded-full flex-shrink-0"
                 />
-                <div
-                  className="text-gray-700"
-                  style={{ lineHeight: "1", margin: "0", padding: "0" }}
-                >
-                  <p style={{ margin: 0, padding: 0, lineHeight: "1", fontSize: "12px" }}>
-                    <span style={{ fontWeight: 600, color: "#374151" }}>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                       {loading ? "Loading..." : userProfile?.fullName || "User"}
+                    </p>
+                    <span className="rounded-full bg-gray-100 dark:bg-gray-800 text-[10px] uppercase tracking-wide text-gray-700 dark:text-gray-300 px-2 py-0.5">
+                      {loading ? "" : userProfile?.roleName || "User"}
                     </span>
-                  </p>
-                  <p style={{ margin: 0, padding: 0, lineHeight: "1", fontSize: "12px", color: "#4b5563" }}>
-                    {loading ? "Loading..." : userProfile?.roleName || "User"}
-                  </p>
-                  <p style={{ margin: 0, padding: 0, lineHeight: "1", fontSize: "12px", color: "#6b7280" }}>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {loading ? "Loading..." : userProfile?.email || "user@example.com"}
                   </p>
                 </div>
               </div>
             </DropdownMenuLabel>
-
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/akun?tab=settings")}>
-              <Settings className="mr-2 h-4 w-4" /> Account Settings
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/akun?tab=notifications")}>
-              <Bell className="mr-2 h-4 w-4" /> Notifications
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/akun?tab=help")}>
-              <HelpCircle className="mr-2 h-4 w-4" /> Help
-            </DropdownMenuItem>
-
-
+            <DropdownMenuItem onClick={() => router.push("/akun?tab=settings")}> <Settings className="mr-2 h-4 w-4" /> Account Settings </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/akun?tab=notifications")}> <Bell className="mr-2 h-4 w-4" /> Notifications </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/akun?tab=help")}> <HelpCircle className="mr-2 h-4 w-4" /> Help </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={async () => {
                 try {
                   const result = await logout();
                   if (result.success) {
-                    if (onLogout) {
-                      onLogout();
-                    } else {
-                      router.push('/login');
-                    }
+                    onLogout ? onLogout() : router.push("/login");
                   } else {
-                    console.error('Logout failed:', result.message);
+                    console.error("Logout failed:", result.message);
                   }
                 } catch (error) {
-                  console.error('Logout error:', error);
-                  router.push('/login');
+                  console.error("Logout error:", error);
+                  router.push("/login");
                 }
               }}
               className="text-red-500 focus:text-red-500"
@@ -221,5 +213,5 @@ export function AppSidebar({ activeMenu, onSelect, onLogout }: AppSidebarProps) 
         </DropdownMenu>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

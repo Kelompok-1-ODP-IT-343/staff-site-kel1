@@ -132,7 +132,7 @@ export default function ChartsSection() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 justify-items-center">
 
       {/* 1) Funnel Status Aplikasi */}
-      <ChartCard title="Funnel Status Aplikasi (YTD)">
+      <ChartCard title="Funnel Status Aplikasi (YTD)" fullWidth>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={funnelRaw} layout="vertical" margin={{ top: 24, bottom: 12, left: 24, right: 24 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={`${COLORS.gray}33`} />
@@ -164,7 +164,7 @@ export default function ChartsSection() {
       </ChartCard>
 
       {/* 2) Aging & SLA Bucket (Approved) */}
-      <ChartCard title="Aging & SLA Bucket (Approved) (YTD)">
+      <ChartCard title="Aging & SLA Bucket (Approved) (YTD)" fullWidth>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={slaData} margin={{ top: 24, bottom: 12, left: 24, right: 24 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={`${COLORS.gray}33`} />
@@ -200,7 +200,7 @@ export default function ChartsSection() {
       </ChartCard>
 
       {/* 3) Pengajuan vs Diterima per Bulan (YTD) */}
-      <ChartCard title="Pengajuan vs Diterima per Bulan (YTD)">
+      <ChartCard title="Pengajuan vs Diterima per Bulan (YTD)" fullWidth>
         {(() => {
           const chartConfig: ChartConfig = {
             submitted: { label: "Diajukan", color: COLORS.blue },
@@ -208,7 +208,7 @@ export default function ChartsSection() {
           };
 
           return (
-            <ChartContainer config={chartConfig} className="h-[280px]">
+            <ChartContainer config={chartConfig} className="h-[280px] aspect-auto">
               <ComposedChart
                 data={monthlyAgg}
                 margin={{ top: 24, bottom: 12, left: 24, right: 24 }}
@@ -248,7 +248,7 @@ export default function ChartsSection() {
       </ChartCard>
 
       {/* 4) Nilai Pengajuan vs Pendapatan per Bulan (Rp) (YTD) */}
-      <ChartCard title="Nilai Pengajuan vs Pendapatan per Bulan (Rp) (YTD)">
+      <ChartCard title="Nilai Pengajuan vs Pendapatan per Bulan (Rp) (YTD)" fullWidth>
         {(() => {
           const chartConfig: ChartConfig = {
             appliedAmount: { label: "Diajukan (Rp)", color: COLORS.blue },
@@ -256,7 +256,7 @@ export default function ChartsSection() {
           };
 
           return (
-            <ChartContainer config={chartConfig} className="h-[280px]">
+            <ChartContainer config={chartConfig} className="h-[280px] aspect-auto">
               <AreaChart
                 data={monthlyAgg}
                 margin={{ top: 24, bottom: 12, left: 24, right: 24 }}
@@ -295,7 +295,7 @@ export default function ChartsSection() {
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, children, fullWidth = false }: { title: string; children: React.ReactNode; fullWidth?: boolean }) {
   return (
     <section className="w-full rounded-2xl border bg-white dark:bg-neutral-950 dark:border-neutral-800 shadow-sm">
       <div className="px-5 py-3 border-b dark:border-neutral-800">
@@ -313,7 +313,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
         </h3>
       </div>
       <div className="px-5 py-5 sm:px-6 sm:py-6">
-        <div className="mx-auto w-full max-w-[520px]">{children}</div>
+        <div className={fullWidth ? "mx-auto w-full" : "mx-auto w-full max-w-[520px]"}>{children}</div>
       </div>
     </section>
   );
