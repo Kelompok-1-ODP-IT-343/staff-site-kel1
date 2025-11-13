@@ -100,7 +100,10 @@ jobs:
         id: trivy
         uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: ${{ steps.image.outputs.sha_tag }}
+          # Jika menggunakan Latest
+          image-ref: docker.io/${{ env.DOCKER_ORG }}/${{ env.IMAGE_NAME }}:latest
+          # Jika mengggunakan SHA
+          # image-ref: ${{ steps.image.outputs.sha_tag }}
           format: 'table'
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
