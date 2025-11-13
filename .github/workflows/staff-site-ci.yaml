@@ -63,7 +63,7 @@ jobs:
       # - main  -> :latest
       # - develop -> :dev
       # - tag v1.2.3 -> :1.2.3 dan :latest
-      # - semua push -> :sha-xxxxxxxx
+      # - semua push -> :sha-xxxxxx
 
       # Scan Trivy
       - name: Run Trivy scan (filesystem)
