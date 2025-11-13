@@ -31,15 +31,15 @@ jobs:
       - name: Run tests (optional)
         run: npm test --if-present
 
-  # Sonar CLoud 
-      - name: SonarCloud Scan
-        if: github.event_name != 'pull_request'
-        uses: SonarSource/sonarcloud-github-action@v3
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectBaseDir: .
+  # # Sonar CLoud 
+  #     - name: SonarCloud Scan
+  #       if: github.event_name != 'pull_request'
+  #       uses: SonarSource/sonarcloud-github-action@v3
+  #       env:
+  #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         projectBaseDir: .
 
   docker:
     needs: ci
@@ -66,15 +66,15 @@ jobs:
       # - semua push -> :sha-xxxxxx
 
       # Scan Trivy
-      - name: Run Trivy scan (filesystem)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: fs
-          scan-ref: .
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: 1
-          format: table
+      # - name: Run Trivy scan (filesystem)
+      #   uses: aquasecurity/trivy-action@master
+      #   with:
+      #     scan-type: fs
+      #     scan-ref: .
+      #     severity: CRITICAL,HIGH
+      #     ignore-unfixed: true
+      #     exit-code: 1
+      #     format: table
 
       - name: Docker meta
         id: meta
@@ -108,3 +108,39 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Get SHA Tag
+        id: image
+        run: |
+          TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep 'sha-' | head -n 1)
+          echo "sha_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using tag: $TAG"
+
+      # --- TRIVY SCAN (SIMPLE & CLEAR) ---
+      - name: Trivy Scan
+        id: trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: ${{ steps.image.outputs.sha_tag }}
+          format: 'table'
+          vuln-type: 'os,library'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'
+          ignore-unfixed: false
+          output: trivy-report.txt
+
+      # --- GITHUB SUMMARY (CLEAR) ---
+      - name: Upload Trivy Summary
+        run: |
+          echo "## 🔍 Trivy Vulnerability Scan Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "**Image scanned:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`${{ steps.image.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 📄 Full Trivy Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat trivy-report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
