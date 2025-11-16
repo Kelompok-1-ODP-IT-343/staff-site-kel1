@@ -1,22 +1,21 @@
-name: CI/CD Pipeline (Next.js + DockerHub + Trivy)
+name: CI & DockerHub Push (Next.js)
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     tags: ["v*", "release-*"]
   pull_request:
 
 env:
   IMAGE_NAME: staff-site-kel1
 
+# ───────────────────────────────
+# STAGE 1 — BUILD NEXT.JS
+# ───────────────────────────────
 jobs:
-# ─────────────────────────────────────────────
-# STAGE 1 — INSTALL & BUILD
-# ─────────────────────────────────────────────
   build:
-    name: 🧱 Build Next.js
+    name: "🧱 Build Next.js"
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -33,45 +32,49 @@ jobs:
       - name: Build Next.js
         run: npm run build
 
+      - name: Run tests (optional)
+        run: npm test --if-present
 
-# ─────────────────────────────────────────────
+
+# ───────────────────────────────
 # STAGE 2 — TEST
-# ─────────────────────────────────────────────
+# ───────────────────────────────
   test:
-    name: 🧪 Run Tests
+    name: "🧪 Run Tests"
     runs-on: ubuntu-latest
     needs: build
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install deps for test
+      - name: Install dependencies
         run: npm ci
 
       - name: Run tests
         run: npm test --if-present
 
 
-# ─────────────────────────────────────────────
+# ───────────────────────────────
 # STAGE 3 — BUILD DOCKER IMAGE
-# ─────────────────────────────────────────────
+# ───────────────────────────────
   docker_build:
-    name: 🐳 Build Docker Image
+    name: "🐳 Build Docker Image"
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name != 'pull_request'
-
     outputs:
-      sha_tag: ${{ steps.export_sha.outputs.sha_tag }}
       tags: ${{ steps.meta.outputs.tags }}
+      labels: ${{ steps.meta.outputs.labels }}
+      sha_tag: ${{ steps.image.outputs.sha_tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -89,6 +92,10 @@ jobs:
             type=ref,event=branch,pattern=develop,name=dev
             type=ref,event=tag
             type=sha,prefix=sha-,format=short
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=${{ env.IMAGE_NAME }}
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -96,58 +103,33 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker Image (No Push)
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          push: false
           context: .
-          file: Dockerfile
+          file: ./Dockerfile
+          push: true
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Export SHA Tag
-        id: export_sha
+      - name: Get SHA Tag
+        id: image
         run: |
           TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep 'sha-' | head -n 1)
-          echo "sha_tag=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:$TAG" >> $GITHUB_OUTPUT
+          echo "sha_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using tag: $TAG"
 
 
-# ─────────────────────────────────────────────
-# STAGE 4 — PUSH DOCKER IMAGE
-# ─────────────────────────────────────────────
-  docker_push:
-    name: 📤 Push Docker Image
+# ───────────────────────────────
+# STAGE 4 — TRIVY SCAN
+# ───────────────────────────────
+  trivy_scan:
+    name: "🔍 Trivy Scan Image"
     runs-on: ubuntu-latest
     needs: docker_build
-
-    steps:
-      - name: Login Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Push Docker Image
-        uses: docker/build-push-action@v6
-        with:
-          push: true
-          context: .
-          file: Dockerfile
-          platforms: linux/amd64
-          tags: |
-            ${{ needs.docker_build.outputs.tags }}
-
-
-# ─────────────────────────────────────────────
-# STAGE 5 — TRIVY SCAN
-# ─────────────────────────────────────────────
-  trivy_scan:
-    name: 🔍 Trivy Scan Image
-    runs-on: ubuntu-latest
-    needs: docker_push
 
     steps:
       - name: Trivy Scan
@@ -159,22 +141,30 @@ jobs:
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
           exit-code: '0'
+          ignore-unfixed: false
           output: trivy-report.txt
 
 
-# ─────────────────────────────────────────────
-# STAGE 6 — UPLOAD SUMMARY
-# ─────────────────────────────────────────────
+# ───────────────────────────────
+# STAGE 5 — SUMMARY
+# ───────────────────────────────
   summary:
-    name: 📊 Upload Trivy Summary
+    name: "📊 Upload Trivy Summary"
     runs-on: ubuntu-latest
     needs: trivy_scan
 
     steps:
-      - name: Print Summary to GitHub
+      - name: Upload Trivy Summary
         run: |
-          echo "## 🔍 Trivy Scan Result" >> $GITHUB_STEP_SUMMARY
-          echo "\`${{ needs.docker_build.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Trivy Vulnerability Scan Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "**Image scanned:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`${{ needs.trivy_scan.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### 📄 Full Trivy Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat trivy-report.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo '```'
