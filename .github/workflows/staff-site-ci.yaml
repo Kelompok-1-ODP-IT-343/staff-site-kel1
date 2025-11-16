@@ -152,7 +152,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: trivy_scan
 
-    - name: Upload Trivy Summary
+    steps:
+      - name: Upload Trivy Summary
         run: |
           echo "## 🔍 Trivy Vulnerability Scan Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
