@@ -2,17 +2,17 @@ name: CI/CD Pipeline (Next.js + DockerHub + Trivy)
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     tags: ["v*", "release-*"]
   pull_request:
 
 env:
   IMAGE_NAME: staff-site-kel1
 
+jobs:
 # ─────────────────────────────────────────────
 # STAGE 1 — INSTALL & BUILD
 # ─────────────────────────────────────────────
-jobs:
   build:
     name: 🧱 Build Next.js
     runs-on: ubuntu-latest
@@ -66,6 +66,10 @@ jobs:
     needs: test
     if: github.event_name != 'pull_request'
 
+    outputs:
+      sha_tag: ${{ steps.export_sha.outputs.sha_tag }}
+      tags: ${{ steps.meta.outputs.tags }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -92,10 +96,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker Image
+      - name: Build Docker Image (No Push)
         uses: docker/build-push-action@v6
         with:
-          push: false   # belum push di stage ini
+          push: false
           context: .
           file: Dockerfile
           platforms: linux/amd64
@@ -105,10 +109,10 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Export SHA Tag
-        id: image
+        id: export_sha
         run: |
           TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep 'sha-' | head -n 1)
-          echo "sha_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "sha_tag=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:$TAG" >> $GITHUB_OUTPUT
 
 
 # ─────────────────────────────────────────────
@@ -120,8 +124,6 @@ jobs:
     needs: docker_build
 
     steps:
-      - uses: actions/checkout@v4
-
       - name: Login Docker Hub
         uses: docker/login-action@v3
         with:
@@ -135,7 +137,8 @@ jobs:
           context: .
           file: Dockerfile
           platforms: linux/amd64
-          tags: ${{ needs.docker_build.outputs.sha_tag }}
+          tags: |
+            ${{ needs.docker_build.outputs.tags }}
 
 
 # ─────────────────────────────────────────────
