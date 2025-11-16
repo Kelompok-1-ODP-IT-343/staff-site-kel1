@@ -70,6 +70,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      sha_tag: ${{ steps.image.outputs.sha_tag }}
 
     steps:
       - name: Checkout repo
@@ -135,7 +137,7 @@ jobs:
         id: trivy
         uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: ${{ steps.image.outputs.sha_tag }}
+          image-ref: ${{ needs.docker_build.outputs.sha_tag }}
           format: 'table'
           vuln-type: 'os,library'
           severity: 'HIGH,CRITICAL'
@@ -159,11 +161,11 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "**Image scanned:**" >> $GITHUB_STEP_SUMMARY
-          echo "\`${{ steps.image.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "\`${{ needs.docker_build.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### 📄 Full Trivy Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat trivy-report.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo '```'
