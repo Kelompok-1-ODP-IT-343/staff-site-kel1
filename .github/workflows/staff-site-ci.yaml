@@ -8,11 +8,13 @@ on:
 
 env:
   IMAGE_NAME: staff-site-kel1
+  ORG: satuatapbni                   # <── ORGANISASI DOCKER HUB KAMU
+
+jobs:
 
 # ───────────────────────────────
 # STAGE 1 — BUILD NEXT.JS
 # ───────────────────────────────
-jobs:
   build:
     name: "🧱 Build Next.js"
     runs-on: ubuntu-latest
@@ -32,8 +34,6 @@ jobs:
       - name: Build Next.js
         run: npm run build
 
-      - name: Run tests (optional)
-        run: npm test --if-present
 
 
 # ───────────────────────────────
@@ -59,19 +59,17 @@ jobs:
         run: npm test --if-present
 
 
+
 # ───────────────────────────────
-# STAGE 3 — BUILD DOCKER IMAGE
+# STAGE 3 — BUILD + PUSH DOCKER IMAGE
 # ───────────────────────────────
   docker_build:
-    name: "🐳 Build Docker Image"
+    name: "🐳 Build & Push Docker Image"
     runs-on: ubuntu-latest
     needs: test
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: read
-      packages: write
+
     outputs:
-      sha_tag: ${{ steps.image.outputs.sha_tag }}
+      sha_tag: ${{ steps.image.outputs.sha_tag }}   # <── digunakan oleh Trivy
 
     steps:
       - name: Checkout repo
@@ -87,7 +85,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.ORG }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch,pattern=main,name=latest
             type=ref,event=branch,pattern=develop,name=dev
@@ -104,24 +102,26 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build & Push Image
         uses: docker/build-push-action@v6
         with:
+          push: true
           context: .
           file: ./Dockerfile
-          push: true
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Get SHA Tag
+      - name: Extract SHA Tag
         id: image
         run: |
           TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep 'sha-' | head -n 1)
-          echo "sha_tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Using tag: $TAG"
+          FULL_TAG="docker.io/${{ env.ORG }}/${{ env.IMAGE_NAME }}:$TAG"
+          echo "sha_tag=$FULL_TAG" >> $GITHUB_OUTPUT
+          echo "Using image: $FULL_TAG"
+
 
 
 # ───────────────────────────────
@@ -133,17 +133,17 @@ jobs:
     needs: docker_build
 
     steps:
-      - name: Trivy Scan
-        id: trivy
+      - name: Scan Docker Image with Trivy
         uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: ${{ needs.docker_build.outputs.sha_tag }}
-          format: 'table'
-          vuln-type: 'os,library'
-          severity: 'HIGH,CRITICAL'
-          exit-code: '0'
+          format: table
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          exit-code: 0
           ignore-unfixed: false
           output: trivy-report.txt
+
 
 
 # ───────────────────────────────
@@ -168,4 +168,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat trivy-report.txt >> $GITHUB_STEP_SUMMARY
-          echo '```'
+          echo '```' >> $GITHUB_STEP_SUMMARY
