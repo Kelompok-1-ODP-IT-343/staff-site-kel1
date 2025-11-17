@@ -1,8 +1,40 @@
 import axios, { AxiosHeaders } from "axios";
 
+// Resolve and normalize API base URLs from environment variables once
+const resolveBaseUrl = (envValue: string | undefined, fallback: string) => {
+  const raw = (envValue && envValue.trim()) || fallback;
+  // Remove any trailing slashes to avoid accidental double slashes in requests
+  return raw.replace(/\/+$/, "");
+};
+
+// Build core API base from host + "/api/v1"
+const CORE_HOST = resolveBaseUrl(
+  process.env.NEXT_PUBLIC_API_BASE_URL,
+  "http://localhost:18080",
+);
+const CORE_API_BASE = `${CORE_HOST}/api/v1`;
+
+// Credit score base: use /api/v2. If env includes /api/v*, force v2; else append /api/v2.
+const resolveCreditApiV2Base = (
+  envValue: string | undefined,
+  hostFallback: string,
+) => {
+  const raw = (envValue && envValue.trim()) || hostFallback;
+  const clean = raw.replace(/\/+$/, "");
+  if (/\/api\/v\d+$/i.test(clean)) {
+    return clean.replace(/\/api\/v\d+$/i, "/api/v2");
+  }
+  return `${clean}/api/v2`;
+};
+
+const CREDIT_SCORE_API_BASE = resolveCreditApiV2Base(
+  process.env.NEXT_PUBLIC_CREDIT_SCORE_API_URL,
+  CORE_HOST,
+);
+
 // Axios instance untuk seluruh request ke API Satu Atap
 const coreApi = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:18080/api/v1",
+  baseURL: CORE_API_BASE,
   timeout: 150000,
   headers: {
     "Content-Type": "application/json",
@@ -11,7 +43,7 @@ const coreApi = axios.create({
 
 // Axios instance khusus untuk refresh token agar tidak terkena loop interceptor
 export const refreshClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:18080/api/v1",
+  baseURL: CORE_API_BASE,
   timeout: 150000,
   headers: {
     "Content-Type": "application/json",
@@ -20,9 +52,7 @@ export const refreshClient = axios.create({
 
 // Axios instance untuk Credit Score API (Java service)
 const creditScoreApi = axios.create({
-  baseURL:
-    process.env.NEXT_PUBLIC_CREDIT_SCORE_API_URL ||
-    "http://localhost:9009/api/v1",
+  baseURL: CREDIT_SCORE_API_BASE,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -332,6 +362,43 @@ export const getUserProfile = async () => {
     return response.data;
   } catch (error) {
     console.error("Error fetching user profile:", error);
+    throw error;
+  }
+};
+
+// Update User Profile by ID, prefer /user/{id} with fallback to /users/{id}
+export const updateUserProfile = async (
+  userId: number | string,
+  payload: {
+    fullName: string;
+    username: string;
+    phone: string;
+    companyName?: string;
+  },
+) => {
+  const id = String(userId || 1);
+  try {
+    const response = await coreApi.put(`/user/${id}`, payload);
+    return response.data;
+  } catch (error: any) {
+    // Fallback to alternate path if necessary
+    if (error?.response?.status === 404 || error?.response?.status === 405) {
+      const resp2 = await coreApi.put(`/users/${id}`, payload);
+      return resp2.data;
+    }
+    console.error("Error updating user profile:", error);
+    throw error;
+  }
+};
+
+// Notifications API
+export const getUserNotifications = async () => {
+  try {
+    const response = await coreApi.get(`/notifications/user`);
+    const data = (response as any)?.data;
+    return data?.data ?? data ?? [];
+  } catch (error) {
+    console.error("Error fetching user notifications:", error);
     throw error;
   }
 };

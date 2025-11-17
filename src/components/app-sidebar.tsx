@@ -85,6 +85,21 @@ export function AppSidebar({ activeMenu, onSelect, onLogout }: AppSidebarProps) 
     fetchUserProfile();
   }, []);
 
+  // Build initials from full name, e.g., "Branch Managerooo" -> "BM"
+  const getInitials = (name: string) => {
+    const n = (name || "").trim();
+    if (!n) return "U";
+    const parts = n.split(/\s+/);
+    if (parts.length === 1) {
+      const p = parts[0];
+      return p.slice(0, 2).toUpperCase();
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const displayName = loading ? "" : userProfile?.fullName || "User";
+  const initials = getInitials(displayName);
+
   return (
     <Sidebar collapsible="icon">
       {/* Header with dynamic logo */}
@@ -142,18 +157,14 @@ export function AppSidebar({ activeMenu, onSelect, onLogout }: AppSidebarProps) 
           <DropdownMenuTrigger asChild>
             <button className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-sidebar-accent transition-colors">
               <div className="flex items-center gap-3 overflow-hidden">
-                <Image
-                  src="/images/avatars/cecilion.png"
-                  alt="Profile"
-                  width={32}
-                  height={32}
-                  className="rounded-full flex-shrink-0"
-                />
-                <div className="flex flex-col text-left truncate">
-                  <span className="text-sm font-semibold text-sidebar-foreground truncate">
-                    {loading ? "Loading..." : userProfile?.fullName || "User"}
+                <div className="h-8 w-8 rounded-full bg-[#0B63E5] text-white grid place-items-center text-xs font-semibold flex-shrink-0">
+                  {loading ? "" : initials}
+                </div>
+                <div className="flex flex-col text-left truncate leading-tight">
+                  <span className="text-[13px] font-semibold text-sidebar-foreground truncate">
+                    {loading ? "Loading..." : displayName}
                   </span>
-                  <span className="text-xs text-gray-400 truncate">
+                  <span className="text-[12px] text-gray-400 truncate">
                     {loading ? "Loading..." : userProfile?.email || "user@example.com"}
                   </span>
                 </div>
@@ -164,23 +175,19 @@ export function AppSidebar({ activeMenu, onSelect, onLogout }: AppSidebarProps) 
           <DropdownMenuContent side="right" align="start" className="w-64 p-0">
             <DropdownMenuLabel className="px-4 py-3">
               <div className="flex items-center gap-3">
-                <Image
-                  src="/images/avatars/cecilion.png"
-                  alt="Profile"
-                  width={40}
-                  height={40}
-                  className="rounded-full flex-shrink-0"
-                />
+                <div className="h-10 w-10 rounded-full bg-[#0B63E5] text-white grid place-items-center text-sm font-semibold flex-shrink-0">
+                  {loading ? "" : initials}
+                </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                      {loading ? "Loading..." : userProfile?.fullName || "User"}
+                    <p className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 truncate leading-tight">
+                      {loading ? "Loading..." : displayName}
                     </p>
                     <span className="rounded-full bg-gray-100 dark:bg-gray-800 text-[10px] uppercase tracking-wide text-gray-700 dark:text-gray-300 px-2 py-0.5">
                       {loading ? "" : userProfile?.roleName || "User"}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                  <p className="text-[12px] text-gray-500 dark:text-gray-400 truncate leading-tight">
                     {loading ? "Loading..." : userProfile?.email || "user@example.com"}
                   </p>
                 </div>

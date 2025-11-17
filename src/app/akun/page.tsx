@@ -40,7 +40,7 @@ import {
   OctagonAlert,
   BellDot
 } from "lucide-react";
-import { getUserProfile } from "@/lib/coreApi";
+import { getUserProfile, updateUserProfile, getUserNotifications } from "@/lib/coreApi";
 
 const COLORS = {
   teal: "#3FD8D4",
@@ -278,12 +278,69 @@ function SettingsContent({ userProfile, loading, formatPhoneNumber, formatCurren
   formatPhoneNumber: (phone: string) => string;
   formatCurrency: (amount: number) => string;
 }) {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    // Sync incoming profile only when not saving to avoid overwriting local edits
+    if (!saving && userProfile) {
+      setFullName(userProfile.fullName || "");
+      setEmail(userProfile.email || "");
+      setUsername(userProfile.username || "");
+      setPhone(userProfile.phone ? userProfile.phone : "");
+      setCompanyName(userProfile.companyName || "");
+    }
+  }, [userProfile, saving]);
+
+  const normalizePhone = (raw: string) => {
+    // Rules:
+    // 1. Keep as-is if it starts with "+"
+    // 2. 08… → +62…
+    // 3. 0… → +62…
+    // 4. 62… stays "62…" (no automatic '+')
+    let s = (raw || "").replace(/\s|\(|\)|-|\./g, "");
+    if (s.startsWith("+")) return s;
+    if (s.startsWith("08")) return "+62" + s.slice(1);
+    if (s.startsWith("0")) return "+62" + s.slice(1);
+    if (s.startsWith("62")) return s; // leave as-is per request
+    return s; // default: no change
+  };
+
+  const onSave = async () => {
+    try {
+      setSaving(true);
+      setMessage(null);
+      const payload = {
+        fullName: fullName.trim(),
+        username: username.trim(),
+        phone: normalizePhone(phone.trim()),
+        companyName: companyName.trim() || undefined,
+      };
+      const id = userProfile?.id ?? 1;
+      await updateUserProfile(id, payload);
+      setMessage({ type: "success", text: "Profile updated successfully." });
+      // Refresh page to fetch the latest profile from server
+      if (typeof window !== "undefined") {
+        setTimeout(() => window.location.reload(), 600);
+      }
+    } catch (err: any) {
+      const text = err?.response?.data?.message || "Failed to update profile.";
+      setMessage({ type: "error", text });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="akun w-full">
       <Tabs defaultValue="account" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
+        <TabsList className="grid w-full grid-cols-1 mb-6">
           <TabsTrigger value="account">Account</TabsTrigger>
-          <TabsTrigger value="password">Password</TabsTrigger>
         </TabsList>
 
         {/* --- Account Info --- */}
@@ -297,122 +354,75 @@ function SettingsContent({ userProfile, loading, formatPhoneNumber, formatCurren
             </CardHeader>
 
             <CardContent className="grid gap-6 md:grid-cols-2">
+              {message && (
+                <div className={`md:col-span-2 text-sm rounded-lg px-3 py-2 ${
+                  message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                }`}>
+                  {message.text}
+                </div>
+              )}
               <div className="grid gap-3">
                 <Label htmlFor="name">Full Name</Label>
-                <Input 
-                  id="name" 
-                  defaultValue={loading ? "Loading..." : userProfile?.fullName || ""} 
-                  disabled={loading}
+                <Input
+                  id="name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  disabled={loading || saving}
                 />
               </div>
 
               <div className="grid gap-3">
                 <Label htmlFor="email">Email</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
-                  defaultValue={loading ? "Loading..." : userProfile?.email || ""} 
-                  disabled={loading}
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={() => {}}
+                  disabled
                 />
               </div>
 
               <div className="grid gap-3">
                 <Label htmlFor="username">Username</Label>
-                <Input 
-                  id="username" 
-                  defaultValue={loading ? "Loading..." : userProfile?.username || ""} 
-                  disabled={loading}
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={loading || saving}
                 />
               </div>
 
               <div className="grid gap-3">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input 
-                  id="phone" 
-                  defaultValue={loading ? "Loading..." : (userProfile?.phone ? formatPhoneNumber(userProfile.phone) : "")} 
-                  disabled={loading}
-                />
-              </div>
-
-              <div className="grid gap-3">
-                <Label htmlFor="position">Position</Label>
-                <Input 
-                  id="position" 
-                  defaultValue={loading ? "Loading..." : userProfile?.occupation || ""} 
-                  disabled={loading}
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => setPhone((p) => normalizePhone(p))}
+                  disabled={loading || saving}
                 />
               </div>
 
               <div className="grid gap-3">
                 <Label htmlFor="department">Company</Label>
-                <Input 
-                  id="department" 
-                  defaultValue={loading ? "Loading..." : userProfile?.companyName || ""} 
-                  disabled={loading}
+                <Input
+                  id="department"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  disabled={loading || saving}
                 />
               </div>
 
-              {userProfile?.monthlyIncome && (
-                <div className="grid gap-3">
-                  <Label htmlFor="income">Monthly Income</Label>
-                  <Input 
-                    id="income" 
-                    defaultValue={loading ? "Loading..." : formatCurrency(userProfile.monthlyIncome)} 
-                    disabled={loading}
-                  />
-                </div>
-              )}
-
-              {userProfile?.nik && (
-                <div className="grid gap-3">
-                  <Label htmlFor="nik">NIK</Label>
-                  <Input 
-                    id="nik" 
-                    defaultValue={loading ? "Loading..." : userProfile.nik} 
-                    disabled={loading}
-                  />
-                </div>
-              )}
+              {/* Removed: Monthly Income, NIK per request */}
             </CardContent>
 
             <CardFooter>
-              <Button className="ml-auto bg-[#0B63E5] hover:bg-[#094ec1]" disabled={loading}>
-                Save Changes
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
-        {/* --- Password Change --- */}
-        <TabsContent value="password">
-          <Card>
-            <CardHeader>
-              <CardTitle>Change Password</CardTitle>
-              <CardDescription>
-                Update your password. After saving, you may need to log in again.
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="grid gap-6">
-              <div className="grid gap-3">
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <Input id="currentPassword" type="password" placeholder="••••••••" />
-              </div>
-
-              <div className="grid gap-3">
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input id="newPassword" type="password" placeholder="••••••••" />
-              </div>
-
-              <div className="grid gap-3">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input id="confirmPassword" type="password" placeholder="••••••••" />
-              </div>
-            </CardContent>
-
-            <CardFooter>
-              <Button className="ml-auto bg-[#0B63E5] hover:bg-[#094ec1]">
-                Save Password
+              <Button
+                onClick={onSave}
+                className="ml-auto bg-[#0B63E5] hover:bg-[#094ec1]"
+                disabled={loading || saving}
+              >
+                {saving ? "Saving..." : "Save Changes"}
               </Button>
             </CardFooter>
           </Card>
@@ -466,50 +476,39 @@ export default function AkunPage() {
 }
 
 function NotificationsContent() {
-  // Dummy data (selalu unread tiap render)
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: "Operation Successful",
-      desc: "Property has been successfully added to the listing.",
-      type: "success",
-      read: false,
-    },
-    {
-      id: 2,
-      title: "Operation Successful",
-      desc: "Customer approval process completed successfully.",
-      type: "success",
-      read: false,
-    },
-    {
-      id: 3,
-      title: "Proceed with Caution",
-      desc: "This action might have unintended consequences. Double-check your decision before proceeding.",
-      type: "warning",
-      read: false,
-    },
-    {
-      id: 4,
-      title: "Important Information",
-      desc: "Make sure to review the recent platform updates before submitting a new property.",
-      type: "info",
-      read: false,
-    },
-    {
-      id: 5,
-      title: "Something Went Wrong",
-      desc: "An error occurred while processing your request. Please try again later.",
-      type: "error",
-      read: false,
-    },
-  ]);
+  const [notifications, setNotifications] = useState<
+    Array<{ id: number | string; title: string; desc: string; type: string; read: boolean }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // hanya efek visual di runtime, tapi tidak disimpan
-  const handleClick = (id: number) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await getUserNotifications();
+        const list = Array.isArray(data) ? data : [];
+        const mapped = list.map((n: any, idx: number) => ({
+          id: n.id ?? idx,
+          title: n.title ?? n.subject ?? "Notification",
+          desc: n.message ?? n.description ?? "",
+          type: (n.type || n.level || "info").toLowerCase(),
+          read: Boolean(n.read),
+        }));
+        if (mounted) setNotifications(mapped);
+      } catch (e: any) {
+        if (mounted) setError(e?.message || "Failed to load notifications");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleClick = (id: number | string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
 
   const getStyle = (type: string) => {
@@ -564,9 +563,7 @@ function NotificationsContent() {
           variant="outline"
           size="sm"
           className="text-sm border-cyan-500 text-cyan-700 hover:bg-cyan-50 transition-colors"
-          onClick={() =>
-            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-          }
+          onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
         >
           Mark all as read
         </Button>
@@ -574,7 +571,13 @@ function NotificationsContent() {
 
       {/* --- Notifications List --- */}
       <div className="space-y-3">
-        {notifications.map((notif) => {
+        {loading && (
+          <div className="text-sm text-gray-500">Loading notifications...</div>
+        )}
+        {error && (
+          <div className="text-sm text-red-600">{error}</div>
+        )}
+        {!loading && notifications.map((notif) => {
           const style = getStyle(notif.type);
           return (
             <div
