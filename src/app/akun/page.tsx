@@ -1,5 +1,5 @@
 "use client";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Accordion,
@@ -42,12 +42,6 @@ import {
 } from "lucide-react";
 import { getUserProfile, updateUserProfile, getUserNotifications } from "@/lib/coreApi";
 
-const COLORS = {
-  teal: "#3FD8D4",
-  gray: "#757575",
-  orange: "#FF8500",
-  lime: "#DDEE59",
-};
 
 interface UserProfile {
   id: number;
@@ -110,22 +104,7 @@ function AkunContent() {
   const goLogout = () => router.push("/");
   const goBack = () => router.push("/dashboard");
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const formatPhoneNumber = (phone: string) => {
-    // Convert phone number to display format
-    if (phone.startsWith('08')) {
-      return `+62 ${phone.substring(1)}`;
-    }
-    return phone;
-  };
+  // Removed local `formatCurrency` and `formatPhoneNumber` helpers — not used in this component.
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -217,8 +196,6 @@ function AkunContent() {
                 <SettingsContent 
                   userProfile={userProfile} 
                   loading={loading} 
-                  formatPhoneNumber={formatPhoneNumber}
-                  formatCurrency={formatCurrency}
                 />
               )}
               {active === "notifications" && <NotificationsContent />}
@@ -272,11 +249,9 @@ function SidebarItem({
 }
 
 /* Content */
-function SettingsContent({ userProfile, loading, formatPhoneNumber, formatCurrency }: { 
+function SettingsContent({ userProfile, loading }: { 
   userProfile: UserProfile | null; 
   loading: boolean;
-  formatPhoneNumber: (phone: string) => string;
-  formatCurrency: (amount: number) => string;
 }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -303,7 +278,7 @@ function SettingsContent({ userProfile, loading, formatPhoneNumber, formatCurren
     // 2. 08… → +62…
     // 3. 0… → +62…
     // 4. 62… stays "62…" (no automatic '+')
-    let s = (raw || "").replace(/\s|\(|\)|-|\./g, "");
+    const s = (raw || "").replace(/\s|\(|\)|-|\./g, "");
     if (s.startsWith("+")) return s;
     if (s.startsWith("08")) return "+62" + s.slice(1);
     if (s.startsWith("0")) return "+62" + s.slice(1);
@@ -688,14 +663,4 @@ function HelpContent() {
 
 
 /* Helpers */
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <label className="block">
-      <span className="block text-sm text-gray-500 mb-1">{label}</span>
-      <input
-        defaultValue={value}
-        className="w-full rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#3FD8D4]"
-      />
-    </label>
-  );
-}
+// Removed unused `Field` helper — it was defined but never used.

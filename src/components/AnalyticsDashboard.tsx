@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CheckCircle2,
   XCircle,
-  Percent,
   Users,
   TrendingUp,
   TrendingDown,

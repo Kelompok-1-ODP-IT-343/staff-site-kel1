@@ -101,11 +101,7 @@ try {
 // Interceptor: sisipkan Authorization jika ada token di cookie
 coreApi.interceptors.request.use((config) => {
   try {
-    if (typeof window !== "undefined") {
-      const headers =
-        config.headers instanceof AxiosHeaders
-          ? config.headers
-          : new AxiosHeaders(config.headers as any);
+      if (typeof window !== "undefined") {
       const token = getCookie("token");
       if (token) {
         const authHeader = `Bearer ${token}`;
@@ -117,7 +113,7 @@ coreApi.interceptors.request.use((config) => {
         }
       }
     }
-  } catch (_) {
+  } catch {
     // abaikan jika cookie tidak tersedia
   }
   return config;
@@ -126,11 +122,7 @@ coreApi.interceptors.request.use((config) => {
 // Ensure Credit Score API also attaches Authorization from cookie
 creditScoreApi.interceptors.request.use((config) => {
   try {
-    if (typeof window !== "undefined") {
-      const headers =
-        config.headers instanceof AxiosHeaders
-          ? config.headers
-          : new AxiosHeaders(config.headers as any);
+      if (typeof window !== "undefined") {
       const token = getCookie("token");
       if (token) {
         const authHeader = `Bearer ${token}`;
@@ -142,13 +134,13 @@ creditScoreApi.interceptors.request.use((config) => {
         }
       }
     }
-  } catch (_) {}
+  } catch {}
   return config;
 });
 
 // Flag to prevent multiple refresh token requests
 let isRefreshing = false;
-let failedQueue: { resolve: Function; reject: Function }[] = [];
+let failedQueue: { resolve: (token: string | null) => void; reject: (err: any) => void }[] = [];
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {

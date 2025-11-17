@@ -11,7 +11,7 @@ function ConfirmContent() {
   const handleConfirm = () => {
     // Dummy confirmation - just redirect back to dashboard
     alert(
-      `${action === "approve" ? "Approval" : "Rejection"} confirmed successfully!`,
+      `${action === 'approve' ? 'Approval' : 'Rejection'} confirmed successfully!`,
     );
     router.push("/dashboard");
   };
@@ -38,8 +38,8 @@ function ConfirmContent() {
           <h1 className="text-2xl font-bold text-gray-800 mb-2">
             Admin Confirmation
           </h1>
-          <p className="text-[#757575] mb-4">
-            You are about to {action === "approve" ? "approve" : "reject"} this
+            <p className="text-[#757575] mb-4">
+            You are about to {action === 'approve' ? 'approve' : 'reject'} this
             application.
           </p>
           <div
@@ -101,9 +101,9 @@ function ConfirmContent() {
         </div>
 
         <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800">
+            <p className="text-sm text-yellow-800">
             <strong>Note:</strong> This is a dummy confirmation page for testing
-            purposes. Simply click "Confirm" to proceed.
+            purposes. Simply click &quot;Confirm&quot; to proceed.
           </p>
         </div>
       </div>

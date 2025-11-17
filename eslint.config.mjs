@@ -23,18 +23,17 @@ const eslintConfig = [
   {
     files: ["**/*.{ts,tsx}", "**/*.ts", "**/*.tsx"],
     rules: {
-      // Relax strict rules to unblock development; revisit for stronger typing later
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unsafe-function-type": "off",
-      // Prefer clean diffs over style churn; can re-enable as warning later
-      "prefer-const": "off",
-      // Allow quotes/apostrophes in JSX text without escaping
-      "react/no-unescaped-entities": "off",
-      // Silence remaining warnings to achieve a clean lint run
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-unused-expressions": "off",
-      "react-hooks/exhaustive-deps": "off",
-      "eslint-comments/no-unused-disable": "off",
+      // Re-enable stricter rules to find real issues.
+      // Keep `no-explicit-any` as a warning to make fixes incremental.
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unsafe-function-type": "error",
+      "prefer-const": "error",
+      "react/no-unescaped-entities": "error",
+      // Re-enable unused checks so we can remove dead code.
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-unused-expressions": "error",
+      "react-hooks/exhaustive-deps": "warn",
+      // Note: eslint-comments plugin not available in this repo; skip its rules.
     },
   },
   {

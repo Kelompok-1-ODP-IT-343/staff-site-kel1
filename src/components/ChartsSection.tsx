@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import {
-  LineChart,
+  // LineChart imported but not used
   Line,
   BarChart,
   Bar,
@@ -50,27 +50,7 @@ const monthNames = [
   "Des",
 ];
 
-function getLastNMonths(n: number) {
-  const out: { key: string; label: string }[] = [];
-  const d = new Date();
-  for (let i = n - 1; i >= 0; i--) {
-    const dt = new Date(d.getFullYear(), d.getMonth() - i, 1);
-    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
-    out.push({ key, label: `${monthNames[dt.getMonth()]} ${String(dt.getFullYear()).slice(-2)}` });
-  }
-  return out;
-}
-
-function monthKey(dateStr: string) {
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function pseudoDaysFromId(id: string) {
-  // Deterministic 0-9 days bucket from id chars
-  const s = Array.from(id).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  return s % 10; // 0..9
-}
+// Removed unused helpers: getLastNMonths, monthKey, pseudoDaysFromId
 
 // Helpers to format API data into chart datasets
 function toMultilineStage(stage: string) {
@@ -397,9 +377,7 @@ function ChartCard({ title, children, fullWidth = false }: { title: string; chil
   );
 }
 
-function formatIdr(n: number) {
-  return n.toLocaleString("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
-}
+// Removed unused helper `formatIdr` to avoid lint warnings
 
 function formatShortIdr(n: number) {
   // e.g. 1.2M, 850K in Indonesian style
