@@ -11,8 +11,8 @@ env:
 
 jobs:
 
-  build_test:
-    name: Build And Test
+  prepare_environment:
+    name: Prepare Environment
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
 
   build_and_push_image:
     name: Build And Push Image
-    needs: build_test
+    needs: prepare_environment
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
 
@@ -37,7 +37,7 @@ jobs:
       packages: write
 
     outputs:
-      sha_tag: ${{ steps.image.outputs.sha_tag }}
+      sha_tag: ${{ steps.image_tag.outputs.sha_tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -77,7 +77,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Get SHA Tag
-        id: image
+        id: image_tag
         run: |
           TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep 'sha-' | head -n 1)
           echo "sha_tag=$TAG" >> $GITHUB_OUTPUT
