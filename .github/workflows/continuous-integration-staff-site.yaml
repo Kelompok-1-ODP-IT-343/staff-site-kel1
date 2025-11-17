@@ -49,8 +49,8 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch,pattern=main,name=latest
             type=sha,prefix=sha-
+            type=ref,event=branch,pattern=main,name=latest
             type=ref,event=tag
 
       - name: Login to Docker Hub
@@ -76,6 +76,7 @@ jobs:
         run: |
           SHA=$(echo "${{ steps.meta.outputs.tags }}" | grep 'sha-' | head -n 1)
           echo "sha=$SHA" >> $GITHUB_OUTPUT
+          echo "Using SHA: $SHA"
 
   security_scan:
     name: Security Scan
@@ -98,6 +99,7 @@ jobs:
         run: |
           echo "## Trivy Vulnerability Scan Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
           echo "Image scanned: \`${{ needs.build_and_push_image.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
