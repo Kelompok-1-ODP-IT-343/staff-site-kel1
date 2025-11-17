@@ -38,7 +38,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
@@ -77,20 +76,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: aquasecurity/trivy-action@0.24.0
+      - name: Run Trivy JSON Scan
+        uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-          format: table
+          format: json
           vuln-type: os,library
           severity: HIGH,CRITICAL
           exit-code: 0
           ignore-unfixed: false
-          output: trivy-report.txt
+          output: trivy-report.json
 
-      - run: |
-          echo "Trivy Vulnerability Scan Report" >> $GITHUB_STEP_SUMMARY
+      - name: Generate Clean Summary + Table Report
+        run: |
+          echo "## Trivy Vulnerability Scan Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Image scanned:" >> $GITHUB_STEP_SUMMARY
-          echo "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+
+          echo "**Image scanned:** \`${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          cat trivy-report.txt >> $GITHUB_STEP_SUMMARY
+
+          HIGH_COUNT=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-report.json)
+          CRITICAL_COUNT=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-report.json)
+
+          echo "### Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- High: $HIGH_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical: $CRITICAL_COUNT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Package | Severity | Installed | Fixed | CVE | Link |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|----------|-----------|-------|-----|------|" >> $GITHUB_STEP_SUMMARY
+
+          jq -r '
+            .Results[].Vulnerabilities[]? |
+            "| \(.PkgName) | \(.Severity) | \(.InstalledVersion) | \(.FixedVersion // "-") | \(.VulnerabilityID) | \(.PrimaryURL) |"
+          ' trivy-report.json >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> Generated automatically via Trivy JSON report for clean readability." >> $GITHUB_STEP_SUMMARY
