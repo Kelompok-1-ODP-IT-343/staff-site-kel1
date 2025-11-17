@@ -31,6 +31,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
 
+    outputs:
+      sha_tag: ${{ steps.get_sha.outputs.sha }}
+
     permissions:
       contents: read
       packages: write
@@ -68,6 +71,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Extract SHA Tag
+        id: get_sha
+        run: |
+          # Extract the full image reference including the repository/username and the sha tag
+          FULL_IMAGE_REF=$(echo "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:$(echo "${{ steps.meta.outputs.tags }}" | grep 'sha-' | head -n 1)")
+          echo "sha=$FULL_IMAGE_REF" >> $GITHUB_OUTPUT
+          echo "Using full image ref: $FULL_IMAGE_REF"
+
   security_scan:
     name: Security Scan
     needs: build_and_push_image
@@ -77,7 +88,8 @@ jobs:
       - name: Run Trivy JSON Scan
         uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: maulanabn99/staff-site-kel1:sha-005a4db
+          # Menggunakan IMAGE_REF LENGKAP: username/staff-site-kel1:sha-xxxxxx
+          image-ref: ${{ needs.build_and_push_image.outputs.sha_tag }}
           format: json
           vuln-type: os,library
           severity: HIGH,CRITICAL
@@ -90,7 +102,7 @@ jobs:
           echo "## Trivy Vulnerability Scan Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "Image scanned: \`maulanabn99/staff-site-kel1:sha-005a4db\`" >> $GITHUB_STEP_SUMMARY
+          echo "Image scanned: \`${{ needs.build_and_push_image.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           HIGH=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy-report.json)
