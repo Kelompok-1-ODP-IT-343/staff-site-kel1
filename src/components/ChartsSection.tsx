@@ -118,7 +118,6 @@ export default function ChartsSection() {
 
   useEffect(() => {
     load(range);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
   const funnelRaw = useMemo(() => {

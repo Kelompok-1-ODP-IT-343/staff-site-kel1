@@ -70,7 +70,6 @@ export default function AnalyticsKpiRadial() {
 
   useEffect(() => {
     load(range);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
   // Map API summary to KPI cards; support snake_case and camelCase
