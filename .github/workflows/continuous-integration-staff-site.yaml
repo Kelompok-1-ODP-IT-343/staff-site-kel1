@@ -36,9 +36,6 @@ jobs:
       contents: read
       packages: write
 
-    outputs:
-      sha_tag: ${{ steps.image_tag.outputs.sha_tag }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -52,9 +49,7 @@ jobs:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch,pattern=main,name=latest
-            type=ref,event=branch,pattern=develop,name=dev
             type=ref,event=tag
-            type=sha,prefix=sha-,format=short
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -76,12 +71,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Get SHA Tag
-        id: image_tag
-        run: |
-          TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep 'sha-' | head -n 1)
-          echo "sha_tag=$TAG" >> $GITHUB_OUTPUT
-
   security_scan:
     name: Security Scan
     needs: build_and_push_image
@@ -90,7 +79,7 @@ jobs:
     steps:
       - uses: aquasecurity/trivy-action@0.24.0
         with:
-          image-ref: ${{ needs.build_and_push_image.outputs.sha_tag }}
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
           format: table
           vuln-type: os,library
           severity: HIGH,CRITICAL
@@ -102,6 +91,6 @@ jobs:
           echo "Trivy Vulnerability Scan Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Image scanned:" >> $GITHUB_STEP_SUMMARY
-          echo "${{ needs.build_and_push_image.outputs.sha_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           cat trivy-report.txt >> $GITHUB_STEP_SUMMARY
