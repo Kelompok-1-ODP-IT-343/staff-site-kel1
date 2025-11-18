@@ -74,9 +74,11 @@ export default function ChartsSection() {
     try {
       const resp = await getStaffDashboard(selected);
       setData(resp);
-    } catch (err: any) {
-      const msg = err?.message || "Gagal memuat data dashboard";
-      setError(msg);
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "message" in err
+        ? (err as { message?: string }).message
+        : undefined;
+      setError(msg ?? "Gagal memuat data dashboard");
     } finally {
       setLoading(false);
     }
@@ -87,10 +89,12 @@ export default function ChartsSection() {
   }, [range]);
 
   const funnelRaw = useMemo(() => {
-    const items = data?.funnel_status ?? [];
+    // Support both snake_case and camelCase payloads from the API
+    const items = data?.funnel_status ?? data?.funnelStatus ?? [];
     const out = items.map((it, idx) => ({
-      name: toMultilineStage(it.stage),
-      value: it.count,
+      // some payloads use `stage`, others use `name`
+      name: toMultilineStage((it.stage ?? it.name) ?? String(it)),
+      value: it.count ?? it.value ?? 0,
       fill: FUNNEL_COLORS[idx] ?? COLORS.blueDark,
     }));
     for (let i = 1; i < out.length; i++) {
@@ -100,29 +104,32 @@ export default function ChartsSection() {
   }, [data]);
 
   const slaData = useMemo(() => {
-    const items = data?.sla_bucket ?? [];
-    return items.map((it) => ({
-      bucket: it.label,
-      value: it.count,
-      fill: SLA_COLOR_BY_LABEL[normalizeSlaLabel(it.label)] ?? COLORS.gray,
-    }));
+    const items = data?.sla_bucket ?? data?.slaBucket ?? [];
+    return items.map((it) => {
+      const label = it.label ?? it.bucket ?? it.name ?? "";
+      return {
+        bucket: label,
+        value: it.count ?? it.value ?? 0,
+        fill: SLA_COLOR_BY_LABEL[normalizeSlaLabel(label)] ?? COLORS.gray,
+      };
+    });
   }, [data]);
 
   const submissionApproved = useMemo(() => {
-    const items = data?.submission_vs_approved ?? [];
+    const items = data?.submission_vs_approved ?? data?.submissionVsApproved ?? [];
     return items.map((it) => ({
       label: it.month,
-      submitted: it.submitted,
-      accepted: it.approved,
+      submitted: it.submitted ?? it.submittedCount ?? 0,
+      accepted: it.approved ?? it.accepted ?? 0,
     }));
   }, [data]);
 
   const valueIncome = useMemo(() => {
-    const items = data?.value_vs_income ?? [];
+    const items = data?.value_vs_income ?? data?.valueVsIncome ?? [];
     return items.map((it) => ({
       label: it.month,
-      appliedAmount: it.submission_value,
-      obtainedAmount: it.income,
+      appliedAmount: it.submission_value ?? it.submissionValue ?? it.submissionAmount ?? 0,
+      obtainedAmount: it.income ?? it.obtainedAmount ?? 0,
     }));
   }, [data]);
 
