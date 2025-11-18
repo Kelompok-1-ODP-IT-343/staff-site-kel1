@@ -144,21 +144,7 @@ type CustomerDetail = {
   slip?: string | null;
 };
 
-type Row = {
-  month: number;
-  principalComponent: number;
-  interestComponent: number;
-  payment: number;
-  balance: number;
-  rateApplied: number;
-};
-
-type RateSegment = {
-  start: number;
-  end: number;
-  rate: number;
-  label?: string;
-};
+// Removed local `Row` and `RateSegment` types (they were unused after cleanup)
 
 type CreditRecommendation = {
   decision: 'APPROVE' | 'REJECT';
@@ -308,21 +294,15 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
   };
 
   // ----- KPR controls (local UI only) -----
-  const [hargaProperti, setHargaProperti] = useState(850_000_000);
-  const [persenDP, setPersenDP] = useState(20);
-  const [jangkaWaktu, setJangkaWaktu] = useState(20);
+  const [hargaProperti] = useState(850_000_000);
+  const [persenDP] = useState(20);
+  const [jangkaWaktu] = useState(20);
   const tenor = jangkaWaktu * 12;
   const loanAmount = hargaProperti * (1 - persenDP / 100);
 
-  const [rateSegments, setRateSegments] = useState<RateSegment[]>([
-    { start: 1, end: 12, rate: 5.99 },
-    { start: 13, end: 240, rate: 13.5 },
-  ]);
+  // rateSegments removed (unused)
 
-  const rows = useMemo(() => buildMultiSegmentSchedule(loanAmount, rateSegments), [loanAmount, rateSegments]);
-
-  const pageSize = 12;
-  const [page, setPage] = useState(1);
+  // rows, pagination removed (unused)
 
   const colors = { blue: '#3FD8D4', gray: '#757575', orange: '#FF8500' } as const;
 
@@ -789,8 +769,8 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <DocRow title="Kartu Tanda Penduduk (KTP)" url={customer.ktp || null} onOpen={openDoc} colors={colors} />
-            <DocRow title="Slip Gaji" url={customer.slip || null} onOpen={openDoc} colors={colors} />
+            <DocRow title="Kartu Tanda Penduduk (KTP)" url={customer.ktp || null} onOpen={openDoc} />
+            <DocRow title="Slip Gaji" url={customer.slip || null} onOpen={openDoc} />
           </div>
         </section>
 
@@ -1117,58 +1097,9 @@ function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail 
   };
 }
 
-function getCreditStatusColor(status?: string) {
-  switch (status) {
-    case 'Lancar': return 'text-green-600 bg-green-100';
-    case 'Dalam Perhatian Khusus': return 'text-yellow-600 bg-yellow-100';
-    case 'Kurang Lancar': return 'text-orange-600 bg-orange-100';
-    case 'Diragukan': return 'text-red-600 bg-red-100';
-    case 'Macet': return 'text-red-700 bg-red-200';
-    default: return 'text-gray-600 bg-gray-100';
-  }
-}
+// Removed unused helpers: getCreditStatusColor, SliderRow, NumberInput
 
-function SliderRow({
-  label, value, min, max, step, sliderValue, onChange,
-}: {
-  label: string; value: string; min: number; max: number; step: number;
-  sliderValue: number; onChange: (v: number) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center">
-        <label className="text-gray-700 font-medium">{label}</label>
-        <span className="font-semibold text-gray-900">{value}</span>
-      </div>
-      <input
-        type="range" min={min} max={max} step={step} value={sliderValue}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-[#3FD8D4] cursor-pointer"
-      />
-    </div>
-  );
-}
-
-function NumberInput({
-  label, value, min, max, step, onChange, tiny = false,
-}: {
-  label: string; value: number; min?: number; max?: number; step?: string;
-  onChange: (v: number) => void; tiny?: boolean;
-}) {
-  return (
-    <label className={`text-xs ${tiny ? '' : 'block'}`}>
-      {label}
-      <input
-        type="number"
-        className="w-full border rounded px-2 py-1 mt-1 bg-white text-gray-900"
-        value={value} min={min} max={max} step={step}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </label>
-  );
-}
-
-function DocRow({ title, url, onOpen, colors }: { title: string; url: string | null; onOpen: (t: string, u: string | null) => void; colors: any }) {
+function DocRow({ title, url, onOpen }: { title: string; url: string | null; onOpen: (t: string, u: string | null) => void; }) {
   return (
     <div className="border rounded-xl p-5 shadow-sm bg-gray-50 flex items-center justify-between">
       <p className="font-semibold text-gray-800 text-base">{title}</p>
@@ -1183,111 +1114,9 @@ function DocRow({ title, url, onOpen, colors }: { title: string; url: string | n
   );
 }
 
-function InstallmentTable({
-  colors, rows, page, setPage, pageSize, roundIDR,
-}: {
-  colors: any;
-  rows: Row[];
-  page: number;
-  setPage: (p: number) => void;
-  pageSize: number;
-  roundIDR: (n: number) => number;
-}) {
-  const maxPage = Math.max(1, Math.ceil(rows.length / pageSize));
-  const paged = rows.slice((page - 1) * pageSize, page * pageSize);
+// InstallmentTable removed (unused)
 
-  return (
-    <div className="rounded-2xl bg-white p-5 border -ml-30" style={{ borderColor: colors.gray + '33' }}>
-      <div className="flex justify-between items-center mb-3">
-        <div className="flex items-center gap-2">
-          <FileText className="h-9 w-9" color={colors.blue} />
-          <h2 className="font-semibold text-black text-base">Rincian Angsuran</h2>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto border rounded-lg" style={{ borderColor: colors.gray + '33' }}>
-        <table className="min-w-full text-sm">
-          <thead style={{ background: colors.blue + '11', color: colors.gray }}>
-            <tr>
-              <th className="px-4 py-2">Bulan</th>
-              <th className="px-4 py-2">Pokok</th>
-              <th className="px-4 py-2">Bunga</th>
-              <th className="px-4 py-2">Angsuran</th>
-              <th className="px-4 py-2">Sisa</th>
-              <th className="px-4 py-2">Rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paged.map((r) => (
-              <tr key={r.month} className="border-t" style={{ borderColor: colors.gray + '33' }}>
-                <td className="px-4 py-2">{r.month}</td>
-                <td className="px-4 py-2">Rp{roundIDR(r.principalComponent).toLocaleString('id-ID')}</td>
-                <td className="px-4 py-2">Rp{roundIDR(r.interestComponent).toLocaleString('id-ID')}</td>
-                <td className="px-4 py-2 font-medium text-black">
-                  Rp{roundIDR(r.payment).toLocaleString('id-ID')}
-                </td>
-                <td className="px-4 py-2">Rp{roundIDR(r.balance).toLocaleString('id-ID')}</td>
-                <td className="px-4 py-2">{r.rateApplied.toFixed(2)}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex justify-between items-center mt-4 text-sm">
-        <span>Halaman {page} / {maxPage}</span>
-        <div className="flex gap-2">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage(Math.max(1, page - 1))}
-            className="px-3 py-1 rounded border disabled:opacity-40"
-            style={{ borderColor: colors.blue, color: colors.blue }}
-          >
-            Prev
-          </button>
-          <button
-            disabled={page === maxPage}
-            onClick={() => setPage(Math.min(maxPage, page + 1))}
-            className="px-3 py-1 rounded border disabled:opacity-40"
-            style={{ borderColor: colors.blue, color: colors.blue }}
-          >
-            Next
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function buildMultiSegmentSchedule(principal: number, segments: { start: number; end: number; rate: number }[]): Row[] {
-  const rows: Row[] = [];
-  let balance = principal;
-
-  for (let s = 0; s < segments.length; s++) {
-    const seg = segments[s];
-    const months = seg.end - seg.start + 1;
-    if (months <= 0 || balance <= 0) continue;
-
-    const r = seg.rate / 100 / 12;
-    const pay = r === 0 ? balance / months : (balance * r) / (1 - Math.pow(1 + r, -months));
-
-    for (let i = 0; i < months; i++) {
-      const interest = balance * r;
-      const principalComp = Math.max(0, pay - interest);
-      balance = Math.max(0, balance - principalComp);
-
-      rows.push({
-        month: seg.start + i,
-        principalComponent: principalComp,
-        interestComponent: interest,
-        payment: principalComp + interest,
-        balance,
-        rateApplied: seg.rate,
-      });
-    }
-  }
-  return rows;
-}
+// Removed buildMultiSegmentSchedule (unused)
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (

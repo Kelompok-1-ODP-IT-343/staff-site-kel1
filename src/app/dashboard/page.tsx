@@ -20,7 +20,7 @@ import ApprovalHistory from "@/components/ApprovalHistory"
 export default function Dashboard() {
   const router = useRouter()
   const [activeMenu, setActiveMenu] = useState("Home")
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [currentDate] = useState(new Date())
 
   const renderContent = () => {
     switch (activeMenu) {
