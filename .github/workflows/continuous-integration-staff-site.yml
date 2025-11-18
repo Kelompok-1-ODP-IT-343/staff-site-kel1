@@ -116,7 +116,7 @@ jobs:
       - name: Update Staff Frontend image tag
         run: |
           cd infra-management/apps/staff-frontend
-          sed -i "s|image: maulanabn99/staff-site-kel1:.*|image: maulanabn99/staff-site-kel1:sha-${{ github.sha::0:7 }}|g" deployment.yaml
+          sed -i "s|image: maulanabn99/staff-site-kel1:.*|image: maulanabn99/staff-site-kel1:sha-${{github.sha}}|g" deployment.yaml
       - name: Commit and Push Changes
         run: |
           cd infra-management
