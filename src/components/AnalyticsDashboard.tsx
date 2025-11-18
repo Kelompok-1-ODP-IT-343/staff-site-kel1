@@ -115,7 +115,8 @@ export default function AnalyticsKpiRadial() {
         trend: Number(growth?.customers ?? 0),
         icon: Users,
         color: COLORS.teal,
-        unit: "rb",
+        // show raw unit (satuan) instead of thousands
+        unit: "",
       },
     ];
   }, [data]);
