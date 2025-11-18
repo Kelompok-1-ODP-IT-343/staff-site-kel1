@@ -100,12 +100,12 @@ jobs:
             "| \(.PkgName) | \(.InstalledVersion) | \(.FixedVersion // "-") | \(.VulnerabilityID) | \(.PrimaryURL) |"
           ' trivy-report.json >> $GITHUB_STEP_SUMMARY
 
-    gitops_update:
-      name: GitOps Update
-      needs: security_scan
-      runs-on: ubuntu-latest
+  gitops_update:
+    name: GitOps Update
+    needs: security_scan
+    runs-on: ubuntu-latest
 
-      steps:
+    steps:
       - name: Checkout infra-management repository
         uses: actions/checkout@v4
         with:
