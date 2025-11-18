@@ -10,7 +10,7 @@ const resolveBaseUrl = (envValue: string | undefined, fallback: string) => {
 // Build core API base from host + "/api/v1"
 const CORE_HOST = resolveBaseUrl(
   process.env.NEXT_PUBLIC_API_BASE_URL,
-  "http://localhost:18080",
+  "https://satuatap.my.id",
 );
 const CORE_API_BASE = `${CORE_HOST}/api/v1`;
 
