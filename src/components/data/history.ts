@@ -1,44 +1,48 @@
 export type Customer = {
-  id: string
+  id: string;
 
   // --- Data Profil ---
-  name: string
-  username: string
-  email: string
-  phone: string
-  nik: string
-  npwp: string
-  birth_date: string
-  birth_place: string
-  gender: string
-  marital_status: string
-  address: string
-  sub_district: string
-  district: string
-  city: string
-  province: string
-  postal_code: string
-  ktp: string
-  slip: string
-  credit_score: 1 | 2 | 3 | 4 | 5
-  credit_status: "Lancar" | "Dalam Perhatian Khusus" | "Kurang Lancar" | "Diragukan" | "Macet"
-  status: "approve" | "reject"
-  property_id: string
-  application_id: string
-  approval_date: string // format "YYYY-MM-DD"
+  name: string;
+  username: string;
+  email: string;
+  phone: string;
+  nik: string;
+  npwp: string;
+  birth_date: string;
+  birth_place: string;
+  gender: string;
+  marital_status: string;
+  address: string;
+  sub_district: string;
+  district: string;
+  city: string;
+  province: string;
+  postal_code: string;
+  ktp: string;
+  slip: string;
+  credit_score: 1 | 2 | 3 | 4 | 5;
+  credit_status:
+    | "Lancar"
+    | "Dalam Perhatian Khusus"
+    | "Kurang Lancar"
+    | "Diragukan"
+    | "Macet";
+  status: "approve" | "reject";
+  property_id: string;
+  application_id: string;
+  approval_date: string; // format "YYYY-MM-DD"
 
   // --- Data Pekerjaan ---
-  occupation: string
-  company_postal_code: string
-  company_name: string
-  company_address: string
-  company_district: string
-  company_subdistrict: string
-  company_city: string
-  company_province: string
-  monthly_income: string
-  
-}
+  occupation: string;
+  company_postal_code: string;
+  company_name: string;
+  company_address: string;
+  company_district: string;
+  company_subdistrict: string;
+  company_city: string;
+  company_province: string;
+  monthly_income: string;
+};
 
 export const customers: Customer[] = [
   {
@@ -64,7 +68,7 @@ export const customers: Customer[] = [
     credit_score: 1,
     credit_status: "Lancar",
     status: "approve",
-    property_id: "3",    
+    property_id: "3",
     application_id: "APP-001",
     approval_date: "2025-04-16",
 
@@ -225,4 +229,5 @@ export const customers: Customer[] = [
     company_city: "Malang",
     company_province: "Jawa Timur",
     monthly_income: "14.000.000",
-  },]
+  },
+];

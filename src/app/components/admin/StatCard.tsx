@@ -10,7 +10,12 @@ interface StatCardProps {
   color?: "blue" | "yellow" | "green" | "red";
 }
 
-export function StatCard({ title, value, total = 0, color = "blue" }: StatCardProps) {
+export function StatCard({
+  title,
+  value,
+  total = 0,
+  color = "blue",
+}: StatCardProps) {
   const COLORS: Record<string, { bg: string; shadow: string; text: string }> = {
     blue: {
       bg: "bg-[#3FD8D4]",

@@ -1,5 +1,5 @@
 interface JWTPayload {
-  role:  'APPROVER' ;
+  role: string;
   userId: number;
   sub: string;
   iat: number;
@@ -8,11 +8,11 @@ interface JWTPayload {
 
 export function decodeJWT(token: string): JWTPayload | null {
   try {
-    const base64Payload = token.split('.')[1];
-    const payload = Buffer.from(base64Payload, 'base64').toString('utf8');
+    const base64Payload = token.split(".")[1];
+    const payload = Buffer.from(base64Payload, "base64").toString("utf8");
     return JSON.parse(payload);
   } catch (error) {
-    console.error('Error decoding JWT:', error);
+    console.error("Error decoding JWT:", error);
     return null;
   }
 }
@@ -20,7 +20,7 @@ export function decodeJWT(token: string): JWTPayload | null {
 export function isTokenExpired(token: string): boolean {
   const payload = decodeJWT(token);
   if (!payload) return true;
-  
+
   const currentTime = Math.floor(Date.now() / 1000);
   return payload.exp < currentTime;
 }

@@ -1,9 +1,15 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { initiateLogin, verifyOtpLogin } from '@/services/auth';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  initiateLogin,
+  verifyOtpLogin,
+  getCurrentUser,
+  getRefreshToken,
+  refreshAccessToken,
+} from "@/services/auth";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -11,39 +17,57 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import React from "react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
-  const [savedIdentifier, setSavedIdentifier] = useState('');
-  const [otp, setOtp] = useState('');
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
+  const [step, setStep] = useState<"credentials" | "otp">("credentials");
+  const [savedIdentifier, setSavedIdentifier] = useState("");
+  const [otp, setOtp] = useState("");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
 
-  const getErrorDetails = (err: unknown) => {
-    if (typeof err === 'object' && err !== null) {
-      const { response } = err as {
-        response?: { status?: number; data?: { message?: string } };
-      };
-      const status = typeof response?.status === 'number' ? response.status : undefined;
-      const message = typeof response?.data?.message === 'string' ? response.data.message : undefined;
-      return { status, message };
+  // Jika sudah login (punya token valid) atau bisa refresh, langsung mantul ke dashboard
+  // Hindari user melihat halaman login saat sesi masih aktif.
+  React.useEffect(() => {
+    let cancelled = false;
+    async function checkAndRedirect() {
+      try {
+        const user = getCurrentUser();
+        if (user && !cancelled) {
+          router.replace("/dashboard");
+          return;
+        }
+        // Jika token tidak valid tapi refreshToken masih ada, coba refresh diam-diam
+        const rt = getRefreshToken();
+        if (rt) {
+          const res = await refreshAccessToken();
+          if (res.success && !cancelled) {
+            router.replace("/dashboard");
+          }
+        }
+      } catch (_) {
+        // Biarkan user tetap di halaman login jika gagal
+      }
     }
-    return { status: undefined, message: undefined };
-  };
+    void checkAndRedirect();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     if (!identifier || !password) {
-      setError('Please enter both Approver ID and password');
+      setError("Please enter both Staff ID and password");
       setLoading(false);
       return;
     }
@@ -51,28 +75,36 @@ export default function LoginPage() {
     try {
       const res = await initiateLogin({ identifier, password });
       if (!res.success) {
-        setError(res.message || 'Failed to login. Please check your credentials.');
+        setError(
+          res.message || "Failed to login. Please check your credentials.",
+        );
         return;
       }
       if (res.requiresOtp) {
         setSavedIdentifier(identifier);
-        setStep('otp');
-        setOtp('');
+        setStep("otp");
+        setOtp("");
       } else {
         // Logged in without OTP (fallback behavior)
-        router.push('/dashboard');
+        router.push("/dashboard");
       }
-    } catch (err: unknown) {
-      console.error('Login error:', err);
-      const { status, message } = getErrorDetails(err);
-      if (status === 401) {
-        setError('Invalid credentials. Please check your Approver ID and password.');
-      } else if (status === 429) {
-        setError('Too many login attempts. Please try again later.');
+    } catch (err: any) {
+      console.error("Login error:", err);
+      if (err?.response?.status === 401) {
+        setError(
+          "Invalid credentials. Please check your Staff ID and password.",
+        );
+      } else if (err?.response?.status === 429) {
+        setError("Too many login attempts. Please try again later.");
       } else if (!navigator.onLine) {
-        setError('No internet connection. Please check your network connection.');
+        setError(
+          "No internet connection. Please check your network connection.",
+        );
       } else {
-        setError(message || 'An error occurred while logging in. Please try again.');
+        setError(
+          err?.response?.data?.message ||
+            "An error occurred while logging in. Please try again.",
+        );
       }
     } finally {
       setLoading(false);
@@ -81,14 +113,14 @@ export default function LoginPage() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     if (!savedIdentifier) {
-      setError('Missing identifier. Please restart login.');
-      setStep('credentials');
+      setError("Missing identifier. Please restart login.");
+      setStep("credentials");
       return;
     }
     if (!otp || otp.length !== 6) {
-      setError('Please enter the 6-digit OTP.');
+      setError("Please enter the 6-digit OTP.");
       return;
     }
 
@@ -96,14 +128,13 @@ export default function LoginPage() {
     try {
       const res = await verifyOtpLogin({ identifier: savedIdentifier, otp });
       if (res.success) {
-        router.push('/dashboard');
+        router.push("/dashboard");
       } else {
-        setError(res.message || 'Invalid OTP.');
+        setError(res.message || "Invalid OTP.");
       }
-    } catch (err: unknown) {
-      console.error('Verify OTP error:', err);
-      const { message } = getErrorDetails(err);
-      setError(message || 'Failed to verify OTP.');
+    } catch (err: any) {
+      console.error("Verify OTP error:", err);
+      setError(err?.response?.data?.message || "Failed to verify OTP.");
     } finally {
       setLoading(false);
     }
@@ -128,27 +159,27 @@ export default function LoginPage() {
               BNI KPR - Satu Atap
             </CardTitle>
             <CardDescription className="text-gray-500 text-sm">
-              {step === 'credentials'
-                ? 'Please enter your Approver ID and password to login.'
-                : 'Enter the 6-digit OTP sent to your registered contact.'}
+              {step === "credentials"
+                ? "Please enter your Staff ID and password to login."
+                : "Enter the 6-digit OTP sent to your registered contact."}
             </CardDescription>
           </CardHeader>
 
           <CardContent>
-            {step === 'credentials' ? (
+            {step === "credentials" ? (
               <form onSubmit={handleLogin} className="flex flex-col gap-6">
                 {error && (
-                <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
-                  {error}
-                </div>
+                  <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
+                    {error}
+                  </div>
                 )}
                 <div className="grid gap-2">
-                  <Label htmlFor="identifier">Approver ID</Label>
+                  <Label htmlFor="identifier">Staff ID</Label>
                   <Input
                     id="identifier"
                     name="identifier"
                     type="text"
-                    placeholder="Enter your Approver ID"
+                    placeholder="Enter your Staff ID"
                     required
                     disabled={loading}
                     value={identifier}
@@ -173,7 +204,7 @@ export default function LoginPage() {
                   disabled={loading}
                   className="w-full bg-[#3FD8D4] hover:bg-[#2BB8B4] text-white font-semibold"
                 >
-                  {loading ? 'Signing in...' : 'Sign in'}
+                  {loading ? "Signing in..." : "Sign in"}
                 </Button>
               </form>
             ) : (
@@ -194,11 +225,16 @@ export default function LoginPage() {
                     maxLength={6}
                     placeholder="Enter 6-digit OTP"
                     value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(e) =>
+                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                    }
                     required
                     disabled={loading}
                   />
-                  <p className="text-xs text-gray-500">We sent an OTP to the contact registered for {savedIdentifier}.</p>
+                  <p className="text-xs text-gray-500">
+                    We sent an OTP to the contact registered for{" "}
+                    {savedIdentifier}.
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -206,7 +242,11 @@ export default function LoginPage() {
                     variant="outline"
                     disabled={loading}
                     className="flex-1"
-                    onClick={() => { setStep('credentials'); setOtp(''); setError(''); }}
+                    onClick={() => {
+                      setStep("credentials");
+                      setOtp("");
+                      setError("");
+                    }}
                   >
                     Back
                   </Button>
@@ -215,7 +255,7 @@ export default function LoginPage() {
                     disabled={loading}
                     className="flex-1 bg-[#3FD8D4] hover:bg-[#2BB8B4] text-white font-semibold"
                   >
-                    {loading ? 'Verifying...' : 'Verify OTP'}
+                    {loading ? "Verifying..." : "Verify OTP"}
                   </Button>
                 </div>
               </form>
@@ -223,7 +263,7 @@ export default function LoginPage() {
           </CardContent>
 
           <CardFooter className="text-center text-sm text-gray-500">
-            © 2025 BNI – Satu Atap Admin Dashboard
+            © 2025 BNI – Satu Atap Staff Dashboard
           </CardFooter>
         </Card>
       </div>

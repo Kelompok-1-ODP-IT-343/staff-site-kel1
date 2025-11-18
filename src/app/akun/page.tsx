@@ -1,11 +1,666 @@
-import { Suspense } from "react";
-import AkunPageClient from "./AkunPageClient";
+"use client";
+import { AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 
-export default function AkunPage() {
-  // Wrap the client component that uses useSearchParams with Suspense per Next.js guidance
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import Image from "next/image";
+import {
+  Settings,
+  Bell,
+  HelpCircle,
+  LogOut,
+  ChevronRight,
+  ArrowLeft,
+  CircleCheckBig,
+  AlertTriangle,
+  Info,
+  OctagonAlert,
+  BellDot
+} from "lucide-react";
+import { getUserProfile, updateUserProfile, getUserNotifications } from "@/lib/coreApi";
+
+
+interface UserProfile {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string;
+  phone: string;
+  roleName: string;
+  status: string;
+  monthlyIncome: number;
+  occupation?: string;
+  companyName?: string;
+  nik?: string;
+  npwp?: string;
+  birthDate?: string;
+  birthPlace?: string;
+  gender?: string;
+  maritalStatus?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  workExperience?: number;
+}
+
+type Section = "settings" | "notifications" | "help";
+
+// Client component that uses search params
+function AkunContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [active, setActive] = useState<Section>("settings");
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const tab = (searchParams.get("tab") || "").toLowerCase();
+    if (tab === "settings" || tab === "notifications" || tab === "help") {
+      setActive(tab as Section);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const response = await getUserProfile();
+        if (response.success) {
+          setUserProfile(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  const goLogout = () => router.push("/");
+  const goBack = () => router.push("/dashboard");
+
+  // Removed local `formatCurrency` and `formatPhoneNumber` helpers — not used in this component.
+
   return (
-    <Suspense fallback={<div className="p-6">Loading...</div>}>
-      <AkunPageClient />
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      {/* HEADER */}
+      <header className="bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto flex justify-between items-center px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="relative w-9 h-9">
+              <Image src="/logo-satuatap.png" alt="Logo" fill className="object-contain" />
+            </div>
+            <span className="font-extrabold text-xl text-[#FF8500]">satuatap</span>
+          </div>
+
+          {/* Tombol Back */}
+          <button
+            onClick={goBack}
+            className="flex items-center gap-1 text-[#0B63E5] hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Kembali ke Dashboard</span>
+          </button>
+        </div>
+      </header>
+
+      {/* BODY */}
+      <main className="flex-1">
+        <div className="max-w-7xl mx-auto px-4 pb-12 grid grid-cols-1 md:grid-cols-12 gap-6 mt-8">
+          {/* SIDEBAR */}
+          <aside className="md:col-span-4 lg:col-span-3">
+            <div className="rounded-2xl bg-white border shadow-sm overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-5 border-b">
+                <div className="relative w-12 h-12 rounded-full overflow-hidden">
+                  <Image
+                    src="/images/avatars/cecilion.png"
+                    alt={loading ? "Loading..." : userProfile?.fullName || "User"}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 leading-tight">
+                    {loading ? "Loading..." : userProfile?.fullName || "User"}
+                  </h3>
+                  <p className="text-xs text-gray-500 -mt-0.5">
+                    {loading ? "Loading..." : userProfile?.roleName || "User"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Menu Items */}
+              <SidebarItem
+                active={active === "settings"}
+                title="Account Settings"
+                icon={<Settings className="h-5 w-5" />}
+                onClick={() => router.push("/akun?tab=settings")}
+              />
+              <SidebarItem
+                active={active === "notifications"}
+                title="Notifications"
+                icon={<Bell className="h-5 w-5" />}
+                onClick={() => router.push("/akun?tab=notifications")}
+              />
+              <SidebarItem
+                active={active === "help"}
+                title="Help"
+                icon={<HelpCircle className="h-5 w-5" />}
+                onClick={() => router.push("/akun?tab=help")}
+              />
+
+              <div className="h-px bg-gray-100 mx-4" />
+
+              <button
+                onClick={goLogout}
+                className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition"
+              >
+                <div className="flex items-center gap-3 text-red-500">
+                  <LogOut className="h-5 w-5" />
+                  <span className="font-medium">Log out</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              </button>
+            </div>
+          </aside>
+
+          {/* CONTENT */}
+          <section className="md:col-span-8 lg:col-span-9">
+            <div className="rounded-2xl bg-white border shadow-sm p-6 space-y-12">
+              {active === "settings" && (
+                <SettingsContent 
+                  userProfile={userProfile} 
+                  loading={loading} 
+                />
+              )}
+              {active === "notifications" && <NotificationsContent />}
+              {active === "help" && <HelpContent />}
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* Sidebar Item */
+function SidebarItem({
+  title,
+  icon,
+  onClick,
+  active,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center justify-between px-5 py-4 transition ${
+        active ? "bg-[#F5FAFF]" : "hover:bg-gray-50"
+      }`}
+    >
+      <div
+        className={`flex items-center gap-3 ${
+          active ? "text-[#0B63E5]" : "text-gray-800"
+        }`}
+      >
+        <div
+          className={`h-9 w-9 grid place-items-center rounded-xl ${
+            active ? "bg-[#EAF2FF]" : "bg-gray-100"
+          }`}
+        >
+          {icon}
+        </div>
+        <span className="font-medium">{title}</span>
+      </div>
+      <ChevronRight
+        className={`h-4 w-4 ${active ? "text-[#0B63E5]" : "text-gray-400"}`}
+      />
+    </button>
+  );
+}
+
+/* Content */
+function SettingsContent({ userProfile, loading }: { 
+  userProfile: UserProfile | null; 
+  loading: boolean;
+}) {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    // Sync incoming profile only when not saving to avoid overwriting local edits
+    if (!saving && userProfile) {
+      setFullName(userProfile.fullName || "");
+      setEmail(userProfile.email || "");
+      setUsername(userProfile.username || "");
+      setPhone(userProfile.phone ? userProfile.phone : "");
+      setCompanyName(userProfile.companyName || "");
+    }
+  }, [userProfile, saving]);
+
+  const normalizePhone = (raw: string) => {
+    // Rules:
+    // 1. Keep as-is if it starts with "+"
+    // 2. 08… → +62…
+    // 3. 0… → +62…
+    // 4. 62… stays "62…" (no automatic '+')
+    const s = (raw || "").replace(/\s|\(|\)|-|\./g, "");
+    if (s.startsWith("+")) return s;
+    if (s.startsWith("08")) return "+62" + s.slice(1);
+    if (s.startsWith("0")) return "+62" + s.slice(1);
+    if (s.startsWith("62")) return s; // leave as-is per request
+    return s; // default: no change
+  };
+
+  const onSave = async () => {
+    try {
+      setSaving(true);
+      setMessage(null);
+      const payload = {
+        fullName: fullName.trim(),
+        username: username.trim(),
+        phone: normalizePhone(phone.trim()),
+        companyName: companyName.trim() || undefined,
+      };
+      const id = userProfile?.id ?? 1;
+      await updateUserProfile(id, payload);
+      setMessage({ type: "success", text: "Profile updated successfully." });
+      // Refresh page to fetch the latest profile from server
+      if (typeof window !== "undefined") {
+        setTimeout(() => window.location.reload(), 600);
+      }
+    } catch (err: any) {
+      const text = err?.response?.data?.message || "Failed to update profile.";
+      setMessage({ type: "error", text });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="akun w-full">
+      <Tabs defaultValue="account" className="w-full">
+        <TabsList className="grid w-full grid-cols-1 mb-6">
+          <TabsTrigger value="account">Account</TabsTrigger>
+        </TabsList>
+
+        {/* --- Account Info --- */}
+        <TabsContent value="account">
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Information</CardTitle>
+              <CardDescription>
+                Update your personal information here. Click save when finished.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="grid gap-6 md:grid-cols-2">
+              {message && (
+                <div className={`md:col-span-2 text-sm rounded-lg px-3 py-2 ${
+                  message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                }`}>
+                  {message.text}
+                </div>
+              )}
+              <div className="grid gap-3">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  disabled={loading || saving}
+                />
+              </div>
+
+              <div className="grid gap-3">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={() => {}}
+                  disabled
+                />
+              </div>
+
+              <div className="grid gap-3">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={loading || saving}
+                />
+              </div>
+
+              <div className="grid gap-3">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  onBlur={() => setPhone((p) => normalizePhone(p))}
+                  disabled={loading || saving}
+                />
+              </div>
+
+              <div className="grid gap-3">
+                <Label htmlFor="department">Company</Label>
+                <Input
+                  id="department"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  disabled={loading || saving}
+                />
+              </div>
+
+              {/* Removed: Monthly Income, NIK per request */}
+            </CardContent>
+
+            <CardFooter>
+              <Button
+                onClick={onSave}
+                className="ml-auto bg-[#0B63E5] hover:bg-[#094ec1]"
+                disabled={loading || saving}
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// Loading component for Suspense fallback
+function LoadingAkun() {
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <header className="bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto flex justify-between items-center px-4 py-3">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-32"></div>
+          </div>
+          <div className="animate-pulse">
+            <div className="h-6 bg-gray-200 rounded w-24"></div>
+          </div>
+        </div>
+      </header>
+      <div className="flex-1 flex">
+        <div className="w-64 bg-white border-r p-4">
+          <div className="animate-pulse space-y-4">
+            <div className="h-10 bg-gray-200 rounded"></div>
+            <div className="h-10 bg-gray-200 rounded"></div>
+            <div className="h-10 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+        <div className="flex-1 p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-4 bg-gray-200 rounded w-full"></div>
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function AkunPage() {
+  return (
+    <Suspense fallback={<LoadingAkun />}>
+      <AkunContent />
     </Suspense>
   );
 }
+
+function NotificationsContent() {
+  const [notifications, setNotifications] = useState<
+    Array<{ id: number | string; title: string; desc: string; type: string; read: boolean }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await getUserNotifications();
+        const list = Array.isArray(data) ? data : [];
+        const mapped = list.map((n: any, idx: number) => ({
+          id: n.id ?? idx,
+          title: n.title ?? n.subject ?? "Notification",
+          desc: n.message ?? n.description ?? "",
+          type: (n.type || n.level || "info").toLowerCase(),
+          read: Boolean(n.read),
+        }));
+        if (mounted) setNotifications(mapped);
+      } catch (e: any) {
+        if (mounted) setError(e?.message || "Failed to load notifications");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleClick = (id: number | string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  const getStyle = (type: string) => {
+    switch (type) {
+      case "success":
+        return {
+          border: "border-emerald-400",
+          bg: "bg-emerald-50",
+          text: "text-emerald-700",
+          icon: <CircleCheckBig className="size-4 text-emerald-600" />,
+        };
+      case "warning":
+        return {
+          border: "border-amber-400",
+          bg: "bg-amber-50",
+          text: "text-amber-700",
+          icon: <AlertTriangle className="size-4 text-amber-600" />,
+        };
+      case "info":
+        return {
+          border: "border-cyan-400",
+          bg: "bg-cyan-50",
+          text: "text-cyan-700",
+          icon: <Info className="size-4 text-cyan-600" />,
+        };
+      case "error":
+        return {
+          border: "border-red-400",
+          bg: "bg-red-50",
+          text: "text-red-700",
+          icon: <OctagonAlert className="size-4 text-red-600" />,
+        };
+      default:
+        return {
+          border: "border-gray-300",
+          bg: "bg-gray-50",
+          text: "text-gray-700",
+          icon: <Info className="size-4 text-gray-500" />,
+        };
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* --- Header --- */}
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <BellDot className="size-5 text-cyan-600" />
+          Notifications
+        </h2>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-sm border-cyan-500 text-cyan-700 hover:bg-cyan-50 transition-colors"
+          onClick={() => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))}
+        >
+          Mark all as read
+        </Button>
+      </div>
+
+      {/* --- Notifications List --- */}
+      <div className="space-y-3">
+        {loading && (
+          <div className="text-sm text-gray-500">Loading notifications...</div>
+        )}
+        {error && (
+          <div className="text-sm text-red-600">{error}</div>
+        )}
+        {!loading && notifications.map((notif) => {
+          const style = getStyle(notif.type);
+          return (
+            <div
+              key={notif.id}
+              onClick={() => handleClick(notif.id)}
+              className={`relative flex items-start gap-3 cursor-pointer p-4 rounded-xl transition-all duration-200 
+                hover:shadow-sm hover:scale-[1.01] border ${style.border} ${style.bg} ${style.text}`}
+            >
+              {/* Icon */}
+              <div className="mt-1">{style.icon}</div>
+
+              {/* Content */}
+              <div className="flex-1">
+                <AlertTitle className="font-semibold">
+                  {notif.title}
+                </AlertTitle>
+                <AlertDescription className="text-sm leading-snug">
+                  {notif.desc}
+                </AlertDescription>
+              </div>
+
+              {/* 🔵 Unread Dot */}
+              {!notif.read && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 size-3 bg-cyan-500 rounded-full shadow-sm ring-2 ring-white"></span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+function HelpContent() {
+  return (
+    <div className="space-y-8">
+      {/* HEADER */}
+      <div>
+        <h2 className="text-2xl font-bold text-[#0B63E5] mb-2">
+          Help Center
+        </h2>
+        <p className="text-gray-700 text-sm leading-relaxed">
+          Panduan untuk administrator{" "}
+          <span className="font-semibold text-[#FF8500]">Satu Atap</span>.  
+          Jika masih mengalami kendala, hubungi tim support di{" "}
+          <span className="font-semibold text-[#0B63E5]">
+            support@satuatap.com
+          </span>.
+        </p>
+      </div>
+
+      {/* ACCORDION */}
+      <Accordion
+        type="single"
+        collapsible
+        className="w-full divide-y divide-gray-200 rounded-xl border border-gray-200 bg-gradient-to-b from-white to-[#fafafa] shadow-sm"
+        defaultValue="item-1"
+      >
+        {[
+          {
+            id: "1",
+            q: "Bagaimana cara menambahkan properti baru?",
+            a: "Masuk ke menu Properties → Add New Property di dashboard admin. Lengkapi data properti seperti developer, tipe, harga, dan gambar. Tekan Save untuk menyimpan.",
+          },
+          {
+            id: "2",
+            q: "Bagaimana mengelola data developer?",
+            a: "Gunakan halaman Developers untuk menambah, mengedit, atau menghapus developer. Pastikan data sesuai dengan daftar rekanan resmi BNI.",
+          },
+          {
+            id: "3",
+            q: "Bagaimana proses approval pengajuan KPR?",
+            a: "Masuk ke Customer Applications, buka detail pengajuan, dan periksa kelengkapan dokumen. Tekan Approve atau Reject sesuai hasil verifikasi.",
+          },
+          {
+            id: "4",
+            q: "Bagaimana cara memperbarui data pengguna admin?",
+            a: "Buka Account Settings → Account untuk memperbarui nama, email, atau jabatan. Klik Save Changes untuk menyimpan perubahan.",
+          },
+          {
+            id: "5",
+            q: "Apa yang harus dilakukan jika sistem error atau tidak bisa login?",
+            a: "Coba refresh halaman. Jika tetap error, kirim laporan ke support@satuatap.com dengan screenshot dan waktu kejadian.",
+          },
+          {
+            id: "6",
+            q: "Bagaimana menjaga keamanan data nasabah?",
+            a: "Gunakan jaringan internal BNI dan jangan bagikan kredensial admin. Semua aktivitas tercatat di audit log.",
+          },
+        ].map((item) => (
+          <AccordionItem key={item.id} value={`item-${item.id}`}>
+            <AccordionTrigger
+              className="text-[15px] font-semibold text-gray-900 hover:text-[#0B63E5] px-6 py-4 transition-colors"
+            >
+              {item.q}
+            </AccordionTrigger>
+            <AccordionContent className="text-gray-700 px-6 pb-5 text-sm leading-relaxed bg-[#fcfcfc]">
+              {item.a}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </div>
+  );
+}
+
+
+
+/* Helpers */
+// Removed unused `Field` helper — it was defined but never used.

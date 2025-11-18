@@ -4,9 +4,8 @@ import React, { useMemo, useState, useEffect, JSX } from 'react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
-  Check, X, XCircle,
-  User2, Wallet, BarChart3, FileText, Eye, Settings2,
-  CheckCircle2, AlertCircle, TrendingUp, Lightbulb
+  XCircle,
+  User2, Wallet, FileText, Eye, Settings2
 } from 'lucide-react';
 import ViewDocumentDialog from '@/components/dialogs/ViewDocumentDialog';
 import ViewApprovalDetails from '@/components/dialogs/ViewApprovalDetails';
@@ -18,10 +17,8 @@ import {
 } from '@/components/ui/dialog';
 import {
   getKPRApplicationDetail,
-  getCreditScore,
   approveKPRApplication,
-  rejectKPRApplication,
-  getCreditRecommendation
+  rejectKPRApplication
 } from '@/lib/coreApi';
 
 /** ---------- Types from your API (minimal) ---------- */
@@ -144,47 +141,11 @@ type CustomerDetail = {
   slip?: string | null;
 };
 
-type Row = {
-  month: number;
-  principalComponent: number;
-  interestComponent: number;
-  payment: number;
-  balance: number;
-  rateApplied: number;
-};
+// Removed unused Row and RateSegment types
 
-type RateSegment = {
-  start: number;
-  end: number;
-  rate: number;
-  label?: string;
-};
+// Removed unused CreditRecommendation types since we're not showing that section
 
-type CreditRecommendation = {
-  decision: 'APPROVE' | 'REJECT';
-  confidence: number;
-  reasons: string[];
-  summary: string;
-  key_factors?: {
-    derived?: {
-      dti?: number;
-      fico_score?: number;
-      ltv?: number;
-    };
-  };
-};
-
-type RecommendationResponse = {
-  success: boolean;
-  recommendation: CreditRecommendation;
-  credit_score_used?: {
-    score: number;
-    breakdown?: any;
-  };
-  model_used?: string;
-};
-
-export default function ApprovalDetailIntegrated(): JSX.Element {
+export default function ApprovalHistoryDetailIntegrated(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
@@ -198,8 +159,6 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [score, setScore] = useState<number>(0);
-  const [scoreLoading, setScoreLoading] = useState(true);
   const [application, setApplication] = useState<any | null>(null);
   const [docViewer, setDocViewer] = useState<{ open: boolean; title: string; url: string | null }>({
     open: false,
@@ -217,10 +176,6 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
     const arr = (application as any)?.approvalWorkflows as ApprovalWorkflow[] | undefined;
     return Array.isArray(arr) ? arr : [];
   }, [application]);
-
-  const [recommendation, setRecommendation] = useState<CreditRecommendation | null>(null);
-  const [recommendationLoading, setRecommendationLoading] = useState(false);
-  const [recommendationError, setRecommendationError] = useState<string | null>(null);
 
   const sortedWorkflows: ApprovalWorkflow[] = useMemo(() => {
     const arr = Array.isArray(workflows) ? [...workflows] : [];
@@ -257,10 +212,7 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
         setCustomer(customerData);
         setApplication(payload as any);
 
-        if (customerData.id) {
-          fetchCreditScore(customerData.id);
-        }
-        fetchCreditRecommendation(id);
+        // Credit score fetching removed as requested
       } catch (e: any) {
         setLoadError(e?.message || 'Gagal memuat data.');
         setCustomer(null);
@@ -273,56 +225,10 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
     };
   }, [id]);
 
-  const fetchCreditScore = async (userId: string) => {
-    try {
-      setScoreLoading(true);
-      const data = await getCreditScore(userId);
-      if (data.success && data.score) {
-        setScore(Math.round(data.score));
-      } else {
-        setScore(650);
-      }
-    } catch {
-      setScore(650);
-    } finally {
-      setScoreLoading(false);
-    }
-  };
-
-  const fetchCreditRecommendation = async (applicationId: string) => {
-    try {
-      setRecommendationLoading(true);
-      setRecommendationError(null);
-
-      const data: RecommendationResponse = await getCreditRecommendation(applicationId);
-      if (data?.success && data?.recommendation) {
-        setRecommendation(data.recommendation);
-      } else {
-        throw new Error('Invalid recommendation response');
-      }
-    } catch (error: any) {
-      setRecommendationError(error?.message || 'Failed to fetch credit recommendation');
-    } finally {
-      setRecommendationLoading(false);
-    }
-  };
-
   // ----- KPR controls (local UI only) -----
-  const [hargaProperti, setHargaProperti] = useState(850_000_000);
-  const [persenDP, setPersenDP] = useState(20);
-  const [jangkaWaktu, setJangkaWaktu] = useState(20);
+  const loanAmount = 850_000_000; // Simplified for this view
+  const jangkaWaktu = 20;
   const tenor = jangkaWaktu * 12;
-  const loanAmount = hargaProperti * (1 - persenDP / 100);
-
-  const [rateSegments, setRateSegments] = useState<RateSegment[]>([
-    { start: 1, end: 12, rate: 5.99 },
-    { start: 13, end: 240, rate: 13.5 },
-  ]);
-
-  const rows = useMemo(() => buildMultiSegmentSchedule(loanAmount, rateSegments), [loanAmount, rateSegments]);
-
-  const pageSize = 12;
-  const [page, setPage] = useState(1);
 
   const colors = { blue: '#3FD8D4', gray: '#757575', orange: '#FF8500' } as const;
 
@@ -403,24 +309,27 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
   return (
     <div className="approval-page min-h-screen bg-white text-gray-700 relative">
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b bg-white" style={{ borderColor: colors.blue }}>
-        <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-4 relative">
+      <header className="sticky top-0 z-10 border-b bg-white/95 backdrop-blur-sm shadow-sm" style={{ borderColor: colors.blue }}>
+        <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-3 relative">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl overflow-hidden">
+            <div className="h-10 w-10 rounded-lg overflow-hidden shadow-sm ring-2 ring-gray-100">
               <img src="/logo-satuatap.png" alt="Satu Atap Logo" className="h-full w-full object-cover" />
             </div>
-            <div>
-              <h1 className="font-semibold text-lg text-black">KPR Application Detail</h1>
-              <p className="text-xs">Berikut Informasi Detail Aplikasi KPR</p>
+            <div className="flex flex-col">
+              <h3 className="font-medium text-base text-gray-900 tracking-tight">KPR Application Detail</h3>
+              <p className="text-[11px] text-gray-500 font-light">Berikut Informasi Detail Aplikasi KPR</p>
             </div>
           </div>
 
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="absolute right-6 top-3 flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all"
-          >
-            <XCircle className="h-6 w-6" /> Close
-          </button>
+          <div className="flex items-center">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800 transition-all duration-200 shadow-sm"
+            >
+              <XCircle className="h-4 w-4" /> 
+              <span className="font-medium">Close</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -428,7 +337,7 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
       <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
 
         {/* ===== Summary Cards (rapi & seragam) ===== */}
-        <section className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-fr">
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-fr">
           {/* Aplikasi */}
           <SummaryCard
             colors={colors}
@@ -486,156 +395,62 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
               })()} bulan
             </p>
           </SummaryCard>
-
-          {/* FICO® Score */}
-          <SummaryCard
-            colors={colors}
-            icon={<BarChart3 className="h-7 w-7" color={colors.blue} />}
-            title="FICO® Score"
-          >
-            {scoreLoading ? (
-              <div className="text-sm text-muted-foreground">Loading score...</div>
-            ) : (
-              <div className="relative w-40 h-20">
-                <svg viewBox="0 0 100 50" className="w-full h-full">
-                  <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#E5E7EB" strokeWidth="8" strokeLinecap="round" />
-                  <path
-                    d="M10 50 A40 40 0 0 1 90 50"
-                    fill="none"
-                    stroke={
-                      score <= 560 ? '#EF4444' :
-                      score <= 650 ? '#F97316' :
-                      score <= 700 ? '#EAB308' :
-                      score <= 750 ? '#3B82F6' : '#22C55E'
-                    }
-                    strokeWidth="8"
-                    strokeDasharray={`${((score - 300) / 550) * 126} 126`}
-                    strokeLinecap="round"
-                  />
-                  <text x="50" y="32" textAnchor="middle" fontSize="14" fontWeight="800" fill="#111827">{score}</text>
-                  <text
-                    x="50"
-                    y="44"
-                    textAnchor="middle"
-                    fontSize="7"
-                    fontWeight="600"
-                    fill={
-                      score <= 560 ? '#dc2626' :
-                      score <= 650 ? '#ea580c' :
-                      score <= 700 ? '#ca8a04' :
-                      score <= 750 ? '#2563eb' : '#16a34a'
-                    }
-                  >
-                    {score <= 560 ? 'Very Bad'
-                      : score <= 650 ? 'Bad'
-                      : score <= 700 ? 'Fair'
-                      : score <= 750 ? 'Good' : 'Excellent'}
-                  </text>
-                </svg>
-              </div>
-            )}
-          </SummaryCard>
         </section>
 
-        {/* Credit Approval Recommendation */}
-        <section className="border rounded-2xl p-5 bg-white shadow-sm" style={{ borderColor: colors.gray + '33' }}>
-          <h2 className="font-semibold text-black text-lg mb-4 flex items-center gap-2">
-            <TrendingUp className="h-6 w-6 text-[#3FD8D4]" /> Credit Approval Recommendation
+        {/* Approval Progress + Actions - MOVED UP */}
+        <section className="border rounded-2xl p-5 bg-white shadow-sm space-y-6" style={{ borderColor: colors.gray + '33' }}>
+          <h2 className="font-semibold text-black text-lg mb-2 flex items-center gap-2">
+            <Settings2 className="h-6 w-6 text-[#3FD8D4]" /> Approval Progress
           </h2>
 
-          {recommendationLoading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3FD8D4] mb-4"></div>
-              <p className="text-sm text-muted-foreground">Generating credit recommendation...</p>
-            </div>
-          ) : recommendationError ? (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 border border-red-200">
-              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-red-900">Failed to load recommendation</p>
-                <p className="text-xs text-red-700 mt-1">{recommendationError}</p>
-              </div>
-            </div>
-          ) : recommendation ? (
-            <div className="space-y-4">
-              {/* Decision & Confidence */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Decision */}
-                <div className={`p-4 rounded-xl border-2 ${
-                  recommendation.decision === 'APPROVE'
-                    ? 'bg-green-50 border-green-300'
-                    : 'bg-red-50 border-red-300'
-                }`}>
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      {recommendation.decision === 'APPROVE' ? (
-                        <CheckCircle2 className="h-6 w-6 text-green-600" />
+          {/* Futuristic stepper */}
+          <div className="relative px-2 py-4">
+            <div className="absolute left-8 right-8 top-8 h-1 bg-gradient-to-r from-gray-200 via-[#3FD8D4]/40 to-gray-200 rounded-full" />
+            <div className="grid grid-cols-4 gap-4 relative">
+              {[0,1,2,3].map((i) => {
+                const state = nodeState(i);
+                const base = 'flex flex-col items-center text-center';
+                const isDone = state === 'done';
+                const isActive = state === 'active';
+                const dotCls = isDone ? 'bg-green-500 border-green-500' : isActive ? 'bg-[#3FD8D4] border-[#3FD8D4]' : 'bg-gray-200 border-gray-300';
+                const ringCls = isActive ? 'ring-4 ring-[#3FD8D4]/30' : '';
+                const title = i === 0 ? 'KPR Approval Assignment' : i === 1 ? 'Property Appraisal' : i === 2 ? 'Credit Analysis' : 'Final Approval';
+                const wf = i > 0 ? sortedWorkflows[i - 1] : undefined;
+                return (
+                  <div key={i} className={`${base} px-2`}>
+                    <div className={`w-6 h-6 rounded-full border ${dotCls} ${ringCls}`} />
+                    <div className="mt-3 text-sm font-semibold text-gray-900">{title}</div>
+                    <div className="mt-2 w-full max-w-[260px] rounded-xl border p-3 shadow-sm bg-white">
+                      {i === 0 ? (
+                        <div className="space-y-2 text-xs text-gray-700">
+                          <div className="flex justify-between"><span className="text-muted-foreground">PIC</span><span className="font-medium">Super Admin</span></div>
+                          <div className="border-t pt-2">
+                            <div className="font-medium mb-1">Name Assign</div>
+                            {sortedWorkflows.slice(0,3).map((w, idx) => (
+                              <div key={w.workflowId} className="flex justify-between">
+                                <span className="text-muted-foreground">Step {idx+1}</span>
+                                <span className="font-medium truncate max-w-[60%] text-right">{nameOrEmail(w)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       ) : (
-                        <XCircle className="h-6 w-6 text-red-600" />
+                        <div className="space-y-2 text-xs text-gray-700">
+                          <div className="flex justify-between"><span className="text-muted-foreground">PIC</span><span className="font-medium truncate max-w-[60%] text-right">{nameOrEmail(wf)}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span className="font-medium truncate max-w-[60%] text-right">{wf?.assignedToEmail ?? '-'}</span></div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Status</span>
+                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${statusBadge(wf?.status)}`}>{(wf?.status ?? 'PENDING')}</span>
+                          </div>
+                          <div className="flex justify-between"><span className="text-muted-foreground">Note</span><span className="font-medium truncate max-w-[60%] text-right">{wf?.approvalNotes ?? wf?.rejectionReason ?? '-'}</span></div>
+                        </div>
                       )}
-                      <h3 className="font-semibold text-base">Decision</h3>
                     </div>
-                    <span className={`text-lg font-bold ${
-                      recommendation.decision === 'APPROVE' ? 'text-green-700' : 'text-red-700'
-                    }`}>
-                      {recommendation.decision}
-                    </span>
                   </div>
-                </div>
-
-                {/* Confidence */}
-                <div className="p-4 rounded-xl border-2 bg-blue-50 border-blue-300">
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-6 w-6 text-blue-600" />
-                      <h3 className="font-semibold text-base">Confidence</h3>
-                    </div>
-                    <span className="text-lg font-bold text-blue-700">
-                      {(recommendation.confidence * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  {recommendation.key_factors?.derived && (
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-blue-700">
-                      <div>DTI: {recommendation.key_factors.derived.dti?.toFixed(2)}</div>
-                      <div>LTV: {recommendation.key_factors.derived.ltv ? (recommendation.key_factors.derived.ltv * 100).toFixed(0) + '%' : '-'}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Summary */}
-              <div className="p-4 rounded-xl border bg-gradient-to-br from-blue-50 to-purple-50">
-                <div className="flex items-center gap-2 mb-3">
-                  <Lightbulb className="h-5 w-5 text-purple-600" />
-                  <h3 className="font-semibold text-base text-gray-900">Summary</h3>
-                </div>
-                <div
-                  className="text-sm text-gray-700 leading-relaxed whitespace-pre-line"
-                  dangerouslySetInnerHTML={{ __html: toHtmlWithBold(recommendation.summary) }}
-                />
-              </div>
-
-              {/* Reasons */}
-              <div className="p-4 rounded-xl border bg-gray-50">
-                <h3 className="font-semibold text-base text-gray-900 mb-3 flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-gray-600" />
-                  Key Reasons
-                </h3>
-                <ul className="space-y-2">
-                  {recommendation.reasons.map((reason, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
-                      <span className="text-[#3FD8D4] font-bold mt-0.5">•</span>
-                      <span dangerouslySetInnerHTML={{ __html: toHtmlWithBold(reason) }} />
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                );
+              })}
             </div>
-          ) : (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              No recommendation available
-            </div>
-          )}
+          </div>
+
         </section>
 
         {/* Detail Customer */}
@@ -791,87 +606,6 @@ export default function ApprovalDetailIntegrated(): JSX.Element {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <DocRow title="Kartu Tanda Penduduk (KTP)" url={customer.ktp || null} onOpen={openDoc} colors={colors} />
             <DocRow title="Slip Gaji" url={customer.slip || null} onOpen={openDoc} colors={colors} />
-          </div>
-        </section>
-
-        {/* Approval Progress + Actions */}
-        <section className="border rounded-2xl p-5 bg-white shadow-sm space-y-6" style={{ borderColor: colors.gray + '33' }}>
-          <h2 className="font-semibold text-black text-lg mb-2 flex items-center gap-2">
-            <Settings2 className="h-6 w-6 text-[#3FD8D4]" /> Approval Progress
-          </h2>
-
-          {/* Futuristic stepper */}
-          <div className="relative px-2 py-4">
-            <div className="absolute left-8 right-8 top-8 h-1 bg-gradient-to-r from-gray-200 via-[#3FD8D4]/40 to-gray-200 rounded-full" />
-            <div className="grid grid-cols-4 gap-4 relative">
-              {[0,1,2,3].map((i) => {
-                const state = nodeState(i);
-                const base = 'flex flex-col items-center text-center';
-                const isDone = state === 'done';
-                const isActive = state === 'active';
-                const dotCls = isDone ? 'bg-green-500 border-green-500' : isActive ? 'bg-[#3FD8D4] border-[#3FD8D4]' : 'bg-gray-200 border-gray-300';
-                const ringCls = isActive ? 'ring-4 ring-[#3FD8D4]/30' : '';
-                const title = i === 0 ? 'KPR Approval Assignment' : i === 1 ? 'Property Appraisal' : i === 2 ? 'Credit Analysis' : 'Final Approval';
-                const wf = i > 0 ? sortedWorkflows[i - 1] : undefined;
-                return (
-                  <div key={i} className={`${base} px-2`}>
-                    <div className={`w-6 h-6 rounded-full border ${dotCls} ${ringCls}`} />
-                    <div className="mt-3 text-sm font-semibold text-gray-900">{title}</div>
-                    <div className="mt-2 w-full max-w-[260px] rounded-xl border p-3 shadow-sm bg-white">
-                      {i === 0 ? (
-                        <div className="space-y-2 text-xs text-gray-700">
-                          <div className="flex justify-between"><span className="text-muted-foreground">PIC</span><span className="font-medium">Super Admin</span></div>
-                          <div className="border-t pt-2">
-                            <div className="font-medium mb-1">Name Assign</div>
-                            {sortedWorkflows.slice(0,3).map((w, idx) => (
-                              <div key={w.workflowId} className="flex justify-between">
-                                <span className="text-muted-foreground">Step {idx+1}</span>
-                                <span className="font-medium truncate max-w-[60%] text-right">{nameOrEmail(w)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2 text-xs text-gray-700">
-                          <div className="flex justify-between"><span className="text-muted-foreground">PIC</span><span className="font-medium truncate max-w-[60%] text-right">{nameOrEmail(wf)}</span></div>
-                          <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span className="font-medium truncate max-w-[60%] text-right">{wf?.assignedToEmail ?? '-'}</span></div>
-                          <div className="flex justify-between"><span className="text-muted-foreground">Status</span>
-                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold ${statusBadge(wf?.status)}`}>{(wf?.status ?? 'PENDING')}</span>
-                          </div>
-                          <div className="flex justify-between"><span className="text-muted-foreground">Note</span><span className="font-medium truncate max-w-[60%] text-right">{wf?.approvalNotes ?? wf?.rejectionReason ?? '-'}</span></div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Actions under tracker */}
-          <div className="flex flex-wrap gap-3 justify-end pt-2">
-            <button
-              disabled={actionLoading}
-              onClick={() => {
-                setReasonInput("");
-                setShowRejectModal(true);
-              }}
-              className="flex items-center gap-2 px-5 py-3 rounded-2xl font-medium text-white shadow hover:bg-red-600 transition-colors"
-              style={{ background: '#dc2626' }}
-            >
-              <X className="h-5 w-5" /> Reject
-            </button>
-            <button
-              disabled={actionLoading}
-              onClick={() => {
-                setReasonInput("");
-                setShowApproveModal(true);
-              }}
-              className="flex items-center gap-2 px-5 py-3 rounded-2xl font-medium text-white shadow hover:bg-green-600 transition-colors"
-              style={{ background: '#16a34a' }}
-            >
-              <Check className="h-5 w-5" /> Approve
-            </button>
           </div>
         </section>
 
@@ -1054,25 +788,9 @@ function SummaryCard({
   );
 }
 
-
 /* ---------- Helpers ---------- */
 
-function escapeHtml(str: string) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-// Minimal markdown: support **bold** and preserve line breaks
-function toHtmlWithBold(md: string | undefined | null): string {
-  if (!md) return "";
-  const escaped = escapeHtml(md);
-  const withBold = escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  return withBold.replace(/\n/g, "<br/>");
-}
+// Removed unused escapeHtml and toHtmlWithBold functions
 
 function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail {
   const ui = d.userInfo ?? {};
@@ -1093,8 +811,8 @@ function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail 
     gender: d.gender ?? (ui as any).gender ?? '-',
     marital_status: (d as any).marital_status ?? (ui as any).maritalStatus ?? '-',
     address: d.address ?? (ui as any).address ?? '-',
-  sub_district: (d as any).sub_district ?? (ui as any).subDistrict ?? '-',
-  district: (d as any).district ?? (ui as any).district ?? '-',
+    sub_district: (d as any).sub_district ?? (ui as any).subDistrict ?? '-',
+    district: (d as any).district ?? (ui as any).district ?? '-',
     city: d.city ?? (ui as any).city ?? '-',
     province: d.province ?? (ui as any).province ?? '-',
     postal_code: (d as any).postal_code ?? (ui as any).postalCode ?? '-',
@@ -1103,11 +821,11 @@ function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail 
     monthly_income: d.monthly_income ?? d.income ?? (ui as any).monthlyIncome ?? '-',
     company_name: d.company_name ?? (ui as any).companyName ?? '-',
     company_address: (d as any).company_address ?? (ui as any).companyAddress ?? '-',
-  company_subdistrict: (d as any).company_subdistrict ?? (ui as any).companySubdistrict ?? '-',
-  company_district: (d as any).company_district ?? (ui as any).companyDistrict ?? '-',
-  company_city: (d as any).company_city ?? (ui as any).companyCity ?? '-',
-  company_province: (d as any).company_province ?? (ui as any).companyProvince ?? '-',
-  company_postal_code: (d as any).company_postal_code ?? (ui as any).companyPostalCode ?? '-',
+    company_subdistrict: (d as any).company_subdistrict ?? (ui as any).companySubdistrict ?? '-',
+    company_district: (d as any).company_district ?? (ui as any).companyDistrict ?? '-',
+    company_city: (d as any).company_city ?? (ui as any).companyCity ?? '-',
+    company_province: (d as any).company_province ?? (ui as any).companyProvince ?? '-',
+    company_postal_code: (d as any).company_postal_code ?? (ui as any).companyPostalCode ?? '-',
 
     credit_status: (d as any).credit_status ?? 'Lancar',
     credit_score: (d as any).credit_score ?? '01',
@@ -1117,56 +835,7 @@ function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail 
   };
 }
 
-function getCreditStatusColor(status?: string) {
-  switch (status) {
-    case 'Lancar': return 'text-green-600 bg-green-100';
-    case 'Dalam Perhatian Khusus': return 'text-yellow-600 bg-yellow-100';
-    case 'Kurang Lancar': return 'text-orange-600 bg-orange-100';
-    case 'Diragukan': return 'text-red-600 bg-red-100';
-    case 'Macet': return 'text-red-700 bg-red-200';
-    default: return 'text-gray-600 bg-gray-100';
-  }
-}
-
-function SliderRow({
-  label, value, min, max, step, sliderValue, onChange,
-}: {
-  label: string; value: string; min: number; max: number; step: number;
-  sliderValue: number; onChange: (v: number) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-center">
-        <label className="text-gray-700 font-medium">{label}</label>
-        <span className="font-semibold text-gray-900">{value}</span>
-      </div>
-      <input
-        type="range" min={min} max={max} step={step} value={sliderValue}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-[#3FD8D4] cursor-pointer"
-      />
-    </div>
-  );
-}
-
-function NumberInput({
-  label, value, min, max, step, onChange, tiny = false,
-}: {
-  label: string; value: number; min?: number; max?: number; step?: string;
-  onChange: (v: number) => void; tiny?: boolean;
-}) {
-  return (
-    <label className={`text-xs ${tiny ? '' : 'block'}`}>
-      {label}
-      <input
-        type="number"
-        className="w-full border rounded px-2 py-1 mt-1 bg-white text-gray-900"
-        value={value} min={min} max={max} step={step}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </label>
-  );
-}
+// Removed unused helper functions for cleaner bundling
 
 function DocRow({ title, url, onOpen, colors }: { title: string; url: string | null; onOpen: (t: string, u: string | null) => void; colors: any }) {
   return (
@@ -1183,111 +852,7 @@ function DocRow({ title, url, onOpen, colors }: { title: string; url: string | n
   );
 }
 
-function InstallmentTable({
-  colors, rows, page, setPage, pageSize, roundIDR,
-}: {
-  colors: any;
-  rows: Row[];
-  page: number;
-  setPage: (p: number) => void;
-  pageSize: number;
-  roundIDR: (n: number) => number;
-}) {
-  const maxPage = Math.max(1, Math.ceil(rows.length / pageSize));
-  const paged = rows.slice((page - 1) * pageSize, page * pageSize);
-
-  return (
-    <div className="rounded-2xl bg-white p-5 border -ml-30" style={{ borderColor: colors.gray + '33' }}>
-      <div className="flex justify-between items-center mb-3">
-        <div className="flex items-center gap-2">
-          <FileText className="h-9 w-9" color={colors.blue} />
-          <h2 className="font-semibold text-black text-base">Rincian Angsuran</h2>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto border rounded-lg" style={{ borderColor: colors.gray + '33' }}>
-        <table className="min-w-full text-sm">
-          <thead style={{ background: colors.blue + '11', color: colors.gray }}>
-            <tr>
-              <th className="px-4 py-2">Bulan</th>
-              <th className="px-4 py-2">Pokok</th>
-              <th className="px-4 py-2">Bunga</th>
-              <th className="px-4 py-2">Angsuran</th>
-              <th className="px-4 py-2">Sisa</th>
-              <th className="px-4 py-2">Rate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paged.map((r) => (
-              <tr key={r.month} className="border-t" style={{ borderColor: colors.gray + '33' }}>
-                <td className="px-4 py-2">{r.month}</td>
-                <td className="px-4 py-2">Rp{roundIDR(r.principalComponent).toLocaleString('id-ID')}</td>
-                <td className="px-4 py-2">Rp{roundIDR(r.interestComponent).toLocaleString('id-ID')}</td>
-                <td className="px-4 py-2 font-medium text-black">
-                  Rp{roundIDR(r.payment).toLocaleString('id-ID')}
-                </td>
-                <td className="px-4 py-2">Rp{roundIDR(r.balance).toLocaleString('id-ID')}</td>
-                <td className="px-4 py-2">{r.rateApplied.toFixed(2)}%</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex justify-between items-center mt-4 text-sm">
-        <span>Halaman {page} / {maxPage}</span>
-        <div className="flex gap-2">
-          <button
-            disabled={page === 1}
-            onClick={() => setPage(Math.max(1, page - 1))}
-            className="px-3 py-1 rounded border disabled:opacity-40"
-            style={{ borderColor: colors.blue, color: colors.blue }}
-          >
-            Prev
-          </button>
-          <button
-            disabled={page === maxPage}
-            onClick={() => setPage(Math.min(maxPage, page + 1))}
-            className="px-3 py-1 rounded border disabled:opacity-40"
-            style={{ borderColor: colors.blue, color: colors.blue }}
-          >
-            Next
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function buildMultiSegmentSchedule(principal: number, segments: { start: number; end: number; rate: number }[]): Row[] {
-  const rows: Row[] = [];
-  let balance = principal;
-
-  for (let s = 0; s < segments.length; s++) {
-    const seg = segments[s];
-    const months = seg.end - seg.start + 1;
-    if (months <= 0 || balance <= 0) continue;
-
-    const r = seg.rate / 100 / 12;
-    const pay = r === 0 ? balance / months : (balance * r) / (1 - Math.pow(1 + r, -months));
-
-    for (let i = 0; i < months; i++) {
-      const interest = balance * r;
-      const principalComp = Math.max(0, pay - interest);
-      balance = Math.max(0, balance - principalComp);
-
-      rows.push({
-        month: seg.start + i,
-        principalComponent: principalComp,
-        interestComponent: interest,
-        payment: principalComp + interest,
-        balance,
-        rateApplied: seg.rate,
-      });
-    }
-  }
-  return rows;
-}
+// Removed unused InstallmentTable and buildMultiSegmentSchedule functions for cleaner bundling
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (

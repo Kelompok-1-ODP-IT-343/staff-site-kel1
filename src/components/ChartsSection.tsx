@@ -1,182 +1,414 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+
 import {
-  AreaChart, Area, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  RadarChart, Radar, PolarGrid, PolarAngleAxis,
-  CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
+  // LineChart imported but not used
+  Line,
+  BarChart,
+  Bar,
+  Cell,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  LabelList,
+  ComposedChart,
+  AreaChart,
+  Area,
 } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { getStaffDashboard, type DashboardRange, type StaffDashboardResponse } from "@/services/dashboard";
 
-
+// Color palette: use existing brand colors
 const COLORS = {
   blue: "#3FD8D4",
-  gray: "#757575",
   orange: "#FF8500",
   lime: "#DDEE59",
-  darkBorder: "rgba(255,255,255,0.1)",
-  lightBorder: "rgba(117,117,117,0.2)",
+  gray: "#757575",
+  slate: "#f83218ff",
+  blueLight: "#B7E5FF",
+  blueMid: "#6FC0FF",
+  blueDark: "#2F8BFF",
+  blueDeep: "#1A54B1",
 };
 
-const months = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul"];
-
-const growthDemand = months.map((m,i)=>({
-  name:m,
-  approval:[40,65,85,78,102,130,145][i],
-  reject:[10,18,25,32,22,14,20][i],
-}));
-
-const outstandingLoan = months.map((m,i)=>({ name:m, value:[180,260,420,500,610,690,770][i] }));
-
-const funnel = [
-  { name:"Draft", value:280 },
-  { name:"Review", value:190 },
-  { name:"Approval", value:140 },
-  { name:"Reject", value:30 },
+// Helpers
+const monthNames = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
 ];
 
-const repayment = [
-  { name:"On-time", value:72, color:COLORS.lime },
-  { name:"Late", value:18, color:COLORS.orange },
-  { name:"Default", value:10, color:"#9CA3AF" },
+// Removed unused helpers: getLastNMonths, monthKey, pseudoDaysFromId
+
+// Helpers to format API data into chart datasets
+function toMultilineStage(stage: string) {
+  // Convert "Property Appraisal" -> "Property\nAppraisal"
+  return stage.replace(/\s+/g, "\n");
+}
+
+function normalizeSlaLabel(label: string) {
+  return label.replace(/\s+/g, "").toLowerCase();
+}
+
+const SLA_COLOR_BY_LABEL: Record<string, string> = {
+  "0-2hari": COLORS.lime,
+  "3-5hari": COLORS.orange,
+  ">5hari": COLORS.slate,
+};
+
+const FUNNEL_COLORS = [
+  COLORS.blueLight,
+  COLORS.blueMid,
+  COLORS.blueDark,
+  COLORS.blueDeep,
 ];
 
 export default function ChartsSection() {
+  const ranges: DashboardRange[] = ["7d", "30d", "90d", "ytd"];
+  const [range, setRange] = useState<DashboardRange>("ytd");
+  const [data, setData] = useState<StaffDashboardResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async (selected: DashboardRange) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const resp = await getStaffDashboard(selected);
+      setData(resp);
+    } catch (err: any) {
+      const msg = err?.message || "Gagal memuat data dashboard";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load(range);
+  }, [range]);
+
+  const funnelRaw = useMemo(() => {
+    const items = data?.funnel_status ?? [];
+    const out = items.map((it, idx) => ({
+      name: toMultilineStage(it.stage),
+      value: it.count,
+      fill: FUNNEL_COLORS[idx] ?? COLORS.blueDark,
+    }));
+    for (let i = 1; i < out.length; i++) {
+      out[i].value = Math.min(out[i - 1].value, out[i].value);
+    }
+    return out;
+  }, [data]);
+
+  const slaData = useMemo(() => {
+    const items = data?.sla_bucket ?? [];
+    return items.map((it) => ({
+      bucket: it.label,
+      value: it.count,
+      fill: SLA_COLOR_BY_LABEL[normalizeSlaLabel(it.label)] ?? COLORS.gray,
+    }));
+  }, [data]);
+
+  const submissionApproved = useMemo(() => {
+    const items = data?.submission_vs_approved ?? [];
+    return items.map((it) => ({
+      label: it.month,
+      submitted: it.submitted,
+      accepted: it.approved,
+    }));
+  }, [data]);
+
+  const valueIncome = useMemo(() => {
+    const items = data?.value_vs_income ?? [];
+    return items.map((it) => ({
+      label: it.month,
+      appliedAmount: it.submission_value,
+      obtainedAmount: it.income,
+    }));
+  }, [data]);
+
+  const titleSuffix = range.toUpperCase();
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Growth & Demand */}
-      <ChartCard title="Growth & Demand">
-        <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={growthDemand}>
-            <defs>
-              <linearGradient id="gradBlue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={COLORS.blue} stopOpacity={0.4} />
-                <stop offset="95%" stopColor={COLORS.blue} stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradOrange" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={COLORS.orange} stopOpacity={0.4} />
-                <stop offset="95%" stopColor={COLORS.orange} stopOpacity={0} />
-              </linearGradient>
-            </defs>
+    <div className="space-y-4">
+      {/* Range selector + refresh */}
+      <div className="flex justify-end">
+        <div className="inline-flex border rounded-lg overflow-hidden bg-white/50 dark:bg-neutral-900">
+          {ranges.map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`px-3 py-1 text-sm font-medium transition-colors ${
+                range === r
+                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  : "text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white"
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => load(range)}
+          className="ml-2 px-3 py-1 text-sm font-medium rounded-lg border bg-white/50 dark:bg-neutral-900 hover:bg-white dark:hover:bg-neutral-800"
+          aria-label="Refresh data"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {error && (
+        <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 justify-items-center">
+
+      {/* 1) Funnel Status Aplikasi */}
+      <ChartCard title={`Funnel Status Aplikasi (${titleSuffix})`} fullWidth>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={funnelRaw} layout="vertical" margin={{ top: 24, bottom: 12, left: 24, right: 24 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={`${COLORS.gray}33`} />
-            <XAxis dataKey="name" stroke={COLORS.gray} tick={{ fontSize: 12 }} />
-            <YAxis stroke={COLORS.gray} tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Area type="monotone" dataKey="approval" name="Approval" stroke={COLORS.orange} fill="url(#gradOrange)" />
-            <Area type="monotone" dataKey="reject" name="Reject" stroke={COLORS.blue} fill="url(#gradBlue)" />
-          </AreaChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      {/* Outstanding Loan */}
-      <ChartCard title="Outstanding Loan (Miliar Rupiah)">
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart data={outstandingLoan}>
-            <CartesianGrid strokeDasharray="3 3" stroke={`${COLORS.gray}33`} />
-            <XAxis dataKey="name" stroke={COLORS.gray} tick={{ fontSize: 12 }} />
-            <YAxis stroke={COLORS.gray} tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Line type="monotone" dataKey="value" stroke={COLORS.blue} strokeWidth={3} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      {/* Funnel */}
-      <ChartCard title="Processing Funnel">
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={funnel}>
-            <CartesianGrid strokeDasharray="3 3" stroke={`${COLORS.gray}33`} />
-            <XAxis dataKey="name" stroke={COLORS.gray} />
-
-            {(() => {
-              // ambil nilai max funnel dan tambah 50
-              const maxValue = Math.max(...funnel.map((d) => d.value));
-              const upperLimit = maxValue + 50;
-
-              // buat ticks otomatis tiap 70 (atau sesuaikan)
-              const step = 70;
-              const ticks = [];
-              for (let i = 0; i <= upperLimit; i += step) ticks.push(i);
-              if (!ticks.includes(maxValue)) ticks.push(maxValue);
-              if (!ticks.includes(upperLimit)) ticks.push(upperLimit);
-              ticks.sort((a, b) => a - b);
-
-              return (
-                <YAxis
-                  stroke={COLORS.gray}
-                  domain={[0, upperLimit]}
-                  allowDecimals={false}
-                  ticks={ticks}
-                />
-              );
-            })()}
-
-            <Tooltip />
-            <Bar dataKey="value" radius={[10,10,0,0]}>
-              <Cell fill={COLORS.blue} />
-              <Cell fill={COLORS.orange} />
-              <Cell fill={COLORS.lime} />
-              <Cell fill={"#9CA3AF"} />
+            <XAxis
+              type="number"
+              stroke={COLORS.gray}
+              tick={{ fontSize: 12 }}
+              domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.07)]}
+              label={{ value: "Jumlah Aplikasi", position: "insideBottom", offset: -5 }}
+            />
+            <YAxis
+              type="category"
+              dataKey="name"
+              interval={0} 
+              tickMargin={4} 
+              stroke={COLORS.gray}
+              tick={<FunnelTick />}
+              label={{ value: "Tahap", angle: -90, position: "left", offset: 12 }}
+            />
+            <Tooltip formatter={(v: number) => v.toLocaleString("id-ID")} />
+            <Bar dataKey="value" radius={[0,10,10,0]}>
+              {funnelRaw.map((stage) => (
+                <Cell key={stage.name} fill={stage.fill} />
+              ))}
+              <LabelList dataKey="value" position="right" formatter={(v: number) => v.toLocaleString("id-ID")} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
 
+      {/* 2) Aging & SLA Bucket (Approved) */}
+      <ChartCard title={`Aging & SLA Bucket (Approved) (${titleSuffix})`} fullWidth>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={slaData} margin={{ top: 24, bottom: 12, left: 24, right: 24 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={`${COLORS.gray}33`} />
+            <XAxis
+              dataKey="bucket"
+              stroke={COLORS.gray}
+              tick={{ fontSize: 12 }}
+              padding={{ left: 0, right: 0 }}                  
+              label={{ value: "Bucket SLA", position: "insideBottom", offset: -5 }}
+            />
+            <YAxis
+              stroke={COLORS.gray}
+              tick={{ fontSize: 12 }}
+              allowDecimals={false}
+              domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.07)]}
+              label={{
+                value: "Jumlah Approved",
+                angle: -90,
+                position: "insideLeft", // ← otomatis di tengah
+                style: { textAnchor: "middle" }, 
+                offset: 12
 
-      {/* Register */}
-      <ChartCard title="User Registered">
-        <section className="rounded-lg border p-4">
-
-          <div className="mx-auto aspect-square max-h-[260px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart
-                data={[
-                  { month: "January", pegawai: 186, nonPegawai: 160 },
-                  { month: "February", pegawai: 185, nonPegawai: 170 },
-                  { month: "March", pegawai: 207, nonPegawai: 180 },
-                  { month: "April", pegawai: 173, nonPegawai: 160 },
-                  { month: "May", pegawai: 160, nonPegawai: 190 },
-                  { month: "June", pegawai: 174, nonPegawai: 204 },
-                ]}
-              >
-                <PolarGrid radialLines={false} />
-                <PolarAngleAxis dataKey="month" />
-                <Radar
-                  dataKey="pegawai"
-                  stroke="#FF8500"
-                  strokeWidth={3}
-                  fillOpacity={0}
-                />
-                <Radar
-                  dataKey="nonPegawai"
-                  stroke="#3FD8D4"
-                  strokeWidth={3}
-                  fillOpacity={0}
-                />
-                <Tooltip />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
+              }}
+            />
+            <Tooltip formatter={(v: number) => v.toLocaleString("id-ID")} />
+            <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+              {slaData.map((d, i) => (
+                <Cell key={`sla-${i}`} fill={d.fill} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </ChartCard>
+
+      {/* 3) Pengajuan vs Diterima per Bulan (YTD) */}
+      <ChartCard title={`Pengajuan vs Diterima per Bulan (${titleSuffix})`} fullWidth>
+        {(() => {
+          const chartConfig: ChartConfig = {
+            submitted: { label: "Diajukan", color: COLORS.blue },
+            accepted: { label: "Diterima", color: COLORS.orange },
+          };
+
+          return (
+            <ChartContainer config={chartConfig} className="h-[280px] aspect-auto">
+              <ComposedChart
+                data={submissionApproved}
+                margin={{ top: 24, bottom: 12, left: 24, right: 24 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={`${COLORS.gray}33`} />
+                <XAxis
+                  dataKey="label"
+                  stroke={COLORS.gray}
+                  tick={{ fontSize: 12 }}
+                  padding={{ left: 0, right: 0 }}
+                  label={{ value: "Bulan", position: "insideBottom", offset: -5, style: { textAnchor: "middle", fontSize: 14 }}}
+                />
+                <YAxis
+                  stroke={COLORS.gray}
+                  tick={{ fontSize: 12 }}
+                  allowDecimals={false}
+                  domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.07)]}
+                  label={{ value: "Jumlah Aplikasi", angle: -90, position: "insideLeft", offset: 12, style: { textAnchor: "middle", fontSize: 14 } }}
+                />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+
+                <Bar dataKey="submitted" fill="var(--color-submitted)" radius={[6, 6, 0, 0]}>
+                  <LabelList position="top" offset={8} className="fill-foreground" fontSize={10} />
+                </Bar>
+
+                <Line
+                  type="linear"
+                  dataKey="accepted"
+                  stroke="var(--color-accepted)"
+                  strokeWidth={2.5}
+                  dot={{ r: 3 }}
+                />
+              </ComposedChart>
+            </ChartContainer>
+          );
+        })()}
+      </ChartCard>
+
+      {/* 4) Nilai Pengajuan vs Pendapatan per Bulan (Rp) (YTD) */}
+      <ChartCard title={`Nilai Pengajuan vs Pendapatan per Bulan (Rp) (${titleSuffix})`} fullWidth>
+        {(() => {
+          const chartConfig: ChartConfig = {
+            appliedAmount: { label: "Diajukan (Rp)", color: COLORS.blue },
+            obtainedAmount: { label: "Pendapatan (Rp)", color: COLORS.orange }, // beda warna supaya jelas
+          };
+
+          return (
+            <ChartContainer config={chartConfig} className="h-[280px] aspect-auto">
+              <AreaChart
+                data={valueIncome}
+                margin={{ top: 24, bottom: 12, left: 24, right: 24 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke={`${COLORS.gray}33`} />
+                <XAxis
+                  dataKey="label"
+                  stroke={COLORS.gray}
+                  tick={{ fontSize: 12 }}
+                  padding={{ left: 0, right: 0 }}
+                  label={{ value: "Bulan", position: "insideBottom", offset: -5, style: { textAnchor: "middle", fontSize: 14 } }}
+                />
+                <YAxis
+                  stroke={COLORS.gray}
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(v: number) => formatShortIdr(v)}
+                  domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.07)]}
+                  label={{ value: "Nilai (Rp)", angle: -90, position: "insideLeft", style: { textAnchor: "middle", fontSize: 14  } }}
+                />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+                <Area
+                  dataKey="appliedAmount"
+                  type="monotone"
+                  fill="var(--color-appliedAmount)"
+                  fillOpacity={0.12}
+                  stroke="var(--color-appliedAmount)"
+                  strokeOpacity={0.6}
+                  strokeWidth={2}
+                />
+                <Area
+                  dataKey="obtainedAmount"
+                  type="monotone"
+                  fill="var(--color-obtainedAmount)"
+                  fillOpacity={0.18}
+                  stroke="var(--color-obtainedAmount)"
+                  strokeOpacity={0.7}
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ChartContainer>
+            );
+        })()}
+        </ChartCard>
+      </div>
+      {loading && (
+        <div className="text-xs text-gray-500 dark:text-gray-400">Memuat data…</div>
+      )}
     </div>
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, children, fullWidth = false }: { title: string; children: React.ReactNode; fullWidth?: boolean }) {
   return (
-    <section className="rounded-2xl border bg-white dark:bg-neutral-950 dark:border-neutral-800 shadow-sm">
+    <section className="w-full rounded-2xl border bg-white dark:bg-neutral-950 dark:border-neutral-800 shadow-sm">
       <div className="px-5 py-3 border-b dark:border-neutral-800">
         <h3
-          className="font-semibold transition-colors duration-300"
+          className="transition-colors duration-300"
           style={{
             fontFamily: "'Inter', sans-serif",
+            fontWeight: 500,
+            fontSize: "20px",
+            lineHeight: "1.2",
             color: "hsl(var(--foreground))",
           }}
         >
           {title}
         </h3>
       </div>
-      <div className="p-4">{children}</div>
+      <div className="px-5 py-5 sm:px-6 sm:py-6">
+        <div className={fullWidth ? "mx-auto w-full" : "mx-auto w-full max-w-[520px]"}>{children}</div>
+      </div>
     </section>
+  );
+}
+
+// Removed unused helper `formatIdr` to avoid lint warnings
+
+function formatShortIdr(n: number) {
+  // e.g. 1.2M, 850K in Indonesian style
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)} M`; // Milyar shortcut
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} Jt`;
+  if (abs >= 1_000) return `${(n / 1_000).toFixed(0)} Rb`;
+  return String(n);
+}
+
+function FunnelTick({ x = 0, y = 0, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+  if (!payload) return null;
+  const lines = String(payload.value).split("\n");
+  const lineHeight = 12;
+  const offset = ((lines.length - 1) * lineHeight) / 2;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      {lines.map((line, index) => (
+        <text
+          key={`${payload.value}-${index}`}
+          x={-6}
+          y={index * lineHeight - offset}
+          textAnchor="end"
+          dominantBaseline="central"
+          fill={COLORS.gray}
+          fontSize={10}
+        >
+          {line}
+        </text>
+      ))}
+    </g>
   );
 }
 

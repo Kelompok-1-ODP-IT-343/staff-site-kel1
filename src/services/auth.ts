@@ -1,87 +1,128 @@
-import coreApi from "@/lib/coreApi";
+import coreApi, { refreshClient } from "@/lib/coreApi";
 import { decodeJWT, isTokenExpired } from "@/lib/jwtUtils";
 
-type ApiError = {
-  response?: {
-    status?: number;
-    data?: {
-      message?: string;
-    };
-  };
-};
-
-const extractErrorMessage = (error: unknown, fallback: string): string => {
-  if (typeof error === "object" && error !== null) {
-    const { response } = error as ApiError;
-    const message = response?.data?.message;
-    if (typeof message === "string" && message.trim().length > 0) {
-      return message;
-    }
+// Cookie helpers
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const value = document.cookie
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${name}=`));
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value.split("=")[1]);
+  } catch {
+    return value.split("=")[1];
   }
-  return fallback;
-};
+}
 
-// Keys used in localStorage
-const LS_KEYS = {
-  accessToken: "access_token",
-  refreshToken: "refresh_token",
-  refreshExpiresAt: "refresh_expires_at", // epoch ms when refresh token (client-side policy) expires
-} as const;
+function setCookieMaxAge(name: string, value: string, maxAgeSeconds: number) {
+  if (typeof document === "undefined") return;
+  const isHttps =
+    typeof window !== "undefined" && window.location.protocol === "https:";
+  const encoded = encodeURIComponent(value);
+  document.cookie = `${name}=${encoded}; max-age=${maxAgeSeconds}; path=/; ${isHttps ? "secure; " : ""}SameSite=Lax`;
+}
 
-// 24 hours in milliseconds
-export const REFRESH_TTL_MS = 24 * 60 * 60 * 1000;
+function deleteCookie(name: string) {
+  if (typeof document === "undefined") return;
+  const isHttps =
+    typeof window !== "undefined" && window.location.protocol === "https:";
+  document.cookie = `${name}=; max-age=0; path=/; ${isHttps ? "secure; " : ""}SameSite=Lax`;
+}
 
-export function saveTokens(params: { accessToken: string; refreshToken?: string; refreshTtlMs?: number }) {
+// TTL policy now controlled by cookie expiry directly
+export const REFRESH_TTL_MS = 24 * 60 * 60 * 1000; // kept for reference but not stored
+
+export function saveTokens(params: {
+  accessToken: string;
+  refreshToken?: string;
+}) {
   if (typeof window === "undefined") return;
-  const { accessToken, refreshToken, refreshTtlMs = REFRESH_TTL_MS } = params;
-  localStorage.setItem(LS_KEYS.accessToken, accessToken);
+  const { accessToken, refreshToken } = params;
+  // token: expire 15 menit; refreshToken: expire 24 jam
+  setCookieMaxAge("token", accessToken, 15 * 60);
   if (refreshToken) {
-    localStorage.setItem(LS_KEYS.refreshToken, refreshToken);
-    // If the refresh token is a JWT with exp, we'll still set client-side fallback expiry of 24h
-    const expiresAt = Date.now() + refreshTtlMs;
-    localStorage.setItem(LS_KEYS.refreshExpiresAt, String(expiresAt));
+    setCookieMaxAge("refreshToken", refreshToken, 24 * 60 * 60);
   }
+  // Cleanup legacy cookies
+  deleteCookie("access_token");
+  deleteCookie("refresh_token");
+  deleteCookie("refresh_expires_at");
 }
 
 export function clearTokens() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(LS_KEYS.accessToken);
-  localStorage.removeItem(LS_KEYS.refreshToken);
-  localStorage.removeItem(LS_KEYS.refreshExpiresAt);
+  deleteCookie("token");
+  deleteCookie("refreshToken");
+  // Cleanup legacy cookies
+  deleteCookie("access_token");
+  deleteCookie("refresh_token");
+  deleteCookie("refresh_expires_at");
   localStorage.removeItem("user_name");
+  // Best-effort: also clear any same-site cookies that might be used by backend/front-end
+  try {
+    const cookieNames = [
+      "access_token",
+      "refresh_token",
+      "token",
+      "refreshToken",
+      "Authorization",
+    ];
+
+    const deleteCookie = (
+      name: string,
+      opts?: { domain?: string; secure?: boolean },
+    ) => {
+      const parts: string[] = [
+        `${encodeURIComponent(name)}=`,
+        "expires=Thu, 01 Jan 1970 00:00:00 GMT",
+        "path=/",
+      ];
+      if (opts?.domain) parts.push(`domain=${opts.domain}`);
+      if (opts?.secure) parts.push("secure");
+      parts.push("samesite=lax");
+      document.cookie = parts.join("; ");
+    };
+
+    const host = window.location.hostname;
+    const domainsToTry = [undefined, host];
+    // If subdomain like app.example.com, also try .example.com
+    const hostParts = host.split(".");
+    if (hostParts.length > 2) {
+      const topLevel = hostParts.slice(-2).join(".");
+      domainsToTry.push(`.${topLevel}`);
+    }
+
+    for (const name of cookieNames) {
+      for (const domain of domainsToTry) {
+        // Try both with and without secure flag to maximize deletion chances
+        deleteCookie(name, { domain, secure: false });
+        deleteCookie(name, { domain, secure: true });
+      }
+    }
+  } catch (_) {
+    // ignore cookie clearing errors
+  }
 }
 
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(LS_KEYS.accessToken);
+  return getCookie("token");
 }
 
 export function getRefreshToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(LS_KEYS.refreshToken);
+  return getCookie("refreshToken");
 }
 
 export function isRefreshExpired(): boolean {
+  // Dengan cookie expiry, jika cookie hilang maka dianggap expired
   try {
     if (typeof window === "undefined") return true;
-    const token = localStorage.getItem(LS_KEYS.refreshToken);
-    if (!token) return true;
-
-    // Prefer JWT exp if the refresh token is a JWT
-    const isJwt = token.split(".").length === 3;
-    if (isJwt) {
-      const payload = decodeJWT(token as string);
-      if (!payload?.exp) return false; // if no exp, fall back below
-      const nowSec = Math.floor(Date.now() / 1000);
-      return payload.exp < nowSec;
-    }
-
-    // Fallback to client-side 24h TTL from stored timestamp
-    const expiresAtStr = localStorage.getItem(LS_KEYS.refreshExpiresAt);
-    if (!expiresAtStr) return false; // if not present, don't block refresh but server will decide
-    const expiresAt = Number(expiresAtStr);
-    return Date.now() > expiresAt;
-  } catch {
+    const token = getCookie("refreshToken");
+    return !token;
+  } catch (_) {
     return true;
   }
 }
@@ -107,17 +148,9 @@ export type AuthFailure = {
   message: string;
 };
 
-const APPROVER_ROLES = ["APPROVER"] as const;
-
-const isApproverRole = (role: string | undefined | null): boolean => {
-  if (!role) return false;
-  const normalized = role.toUpperCase();
-  return APPROVER_ROLES.some((allowed) => allowed === normalized);
-};
-
 export function getCurrentUser(): AuthSuccess["user"] | null {
   try {
-    const token = localStorage.getItem(LS_KEYS.accessToken);
+    const token = getAccessToken();
     if (!token || isTokenExpired(token)) {
       return null;
     }
@@ -151,7 +184,7 @@ export async function logout(): Promise<LogoutResult> {
     return {
       success: true,
     };
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.error("Logout error:", err);
 
     // Still clear local storage even if the API call fails
@@ -159,7 +192,7 @@ export async function logout(): Promise<LogoutResult> {
 
     return {
       success: false,
-      message: extractErrorMessage(err, "Logout failed"),
+      message: err?.response?.data?.message || "Logout failed",
     };
   }
 }
@@ -167,66 +200,69 @@ export async function logout(): Promise<LogoutResult> {
 // Blueprint login: panggilan API asli dikomentari, return success
 // API endpoints
 const API_ENDPOINTS = {
-  LOGIN: '/auth/login',    // This will be appended to the base URL from .env.local
-  PROFILE: '/user/profile',
-  LOGOUT: '/auth/logout'   // Will be /api/v1/auth/logout
+  LOGIN: "/auth/login", // This will be appended to the base URL from .env.local
+  PROFILE: "/user/profile",
+  LOGOUT: "/auth/logout", // Will be /api/v1/auth/logout
 };
 
 export async function loginBlueprint(
-  payload: LoginPayload
+  payload: LoginPayload,
 ): Promise<AuthSuccess | AuthFailure> {
   try {
     // Make API call to your login endpoint
     const response = await coreApi.post(API_ENDPOINTS.LOGIN, {
       identifier: payload.identifier,
-      password: payload.password
+      password: payload.password,
     });
 
     const { success, message, data } = response.data;
-    
+
     if (success) {
       // Get user info from the JWT token
       const decodedToken = decodeJWT(data.token);
-      
+
       if (!decodedToken) {
         return {
           success: false,
-          message: "Invalid token received"
+          message: "Invalid token received",
         };
       }
 
-      // Store the JWT tokens with a 24h refresh TTL policy
-      saveTokens({ accessToken: data.token, refreshToken: data.refreshToken, refreshTtlMs: REFRESH_TTL_MS });
-      
-      // Check if the user has the approver role
-      if (!isApproverRole(decodedToken.role)) {
+      // Store the JWT tokens in cookies (token 15m, refreshToken 24h)
+      saveTokens({ accessToken: data.token, refreshToken: data.refreshToken });
+
+      // Allow only staff roles for this portal
+      const allowedRoles = ["APPROVER", "VERIFIKATOR", "ADMIN"];
+      const userRole = (decodedToken.role || "").toUpperCase();
+      if (!allowedRoles.includes(userRole)) {
         return {
           success: false,
-          message: "Access denied. This portal is only for approvers."
+          message: "Access denied. This portal is only for staff.",
         };
       }
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         token: data.token,
         user: {
           id: decodedToken.userId,
           name: decodedToken.sub,
-          role: decodedToken.role
-        }
+          role: decodedToken.role,
+        },
       };
     }
-    
+
     return {
       success: false,
-      message: message || "Login failed"
+      message: message || "Login failed",
     };
-  } catch (err: unknown) {
+  } catch (err: any) {
     // Handle API errors
     console.error("Login error:", err);
+    const message = err?.response?.data?.message || "Login failed";
     return {
       success: false,
-      message: extractErrorMessage(err, "Login failed"),
+      message,
     };
   }
 }
@@ -239,10 +275,10 @@ export type LoginInitResult = {
 };
 
 export async function initiateLogin(
-  payload: LoginPayload
+  payload: LoginPayload,
 ): Promise<LoginInitResult> {
   try {
-    const response = await coreApi.post('/auth/login', {
+    const response = await coreApi.post("/auth/login", {
       identifier: payload.identifier,
       password: payload.password,
     });
@@ -250,63 +286,88 @@ export async function initiateLogin(
     const { success, message, data } = response.data || {};
 
     if (!success) {
-      return { success: false, requiresOtp: false, message: message || 'Login failed' };
+      return {
+        success: false,
+        requiresOtp: false,
+        message: message || "Login failed",
+      };
     }
 
     // If token exists, login completed (no OTP required)
     if (data?.token) {
       const decodedToken = decodeJWT(data.token);
       if (!decodedToken) {
-        return { success: false, requiresOtp: false, message: 'Invalid token received' };
+        return {
+          success: false,
+          requiresOtp: false,
+          message: "Invalid token received",
+        };
       }
-      // Persist tokens
-      saveTokens({ accessToken: data.token, refreshToken: data.refreshToken, refreshTtlMs: REFRESH_TTL_MS });
-      if (!isApproverRole(decodedToken.role)) {
-        return { success: false, requiresOtp: false, message: 'Access denied. This portal is only for approvers.' };
+      // Persist tokens in cookies
+      saveTokens({ accessToken: data.token, refreshToken: data.refreshToken });
+      const allowedRoles = ["APPROVER", "VERIFIKATOR", "ADMIN"];
+      const userRole = (decodedToken.role || "").toUpperCase();
+      if (!allowedRoles.includes(userRole)) {
+        return {
+          success: false,
+          requiresOtp: false,
+          message: "Access denied. This portal is only for staff.",
+        };
       }
       return { success: true, requiresOtp: false };
     }
 
     // Otherwise assume OTP is required
     return { success: true, requiresOtp: true };
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.error("Initiate login error:", err);
     return {
       success: false,
       requiresOtp: false,
-      message: extractErrorMessage(err, "Login failed"),
+      message: err?.response?.data?.message || "Login failed",
     };
   }
 }
 
 // New: verify OTP for login
-export async function verifyOtpLogin(params: { identifier: string; otp: string }): Promise<AuthSuccess | AuthFailure> {
+export async function verifyOtpLogin(params: {
+  identifier: string;
+  otp: string;
+}): Promise<AuthSuccess | AuthFailure> {
   try {
-    const response = await coreApi.post('/auth/verify-otp', {
+    const response = await coreApi.post("/auth/verify-otp", {
       identifier: params.identifier,
       otp: params.otp,
-      purpose: 'login',
+      purpose: "login",
     });
 
     const { success, message, data } = response.data || {};
     if (!success) {
-      return { success: false, message: message || 'OTP verification failed' };
+      return { success: false, message: message || "OTP verification failed" };
     }
 
     if (!data?.token) {
-      return { success: false, message: 'No token returned from OTP verification' };
+      return {
+        success: false,
+        message: "No token returned from OTP verification",
+      };
     }
 
     const decodedToken = decodeJWT(data.token);
     if (!decodedToken) {
-      return { success: false, message: 'Invalid token received' };
+      return { success: false, message: "Invalid token received" };
     }
 
-    // Persist tokens
-    saveTokens({ accessToken: data.token, refreshToken: data.refreshToken, refreshTtlMs: REFRESH_TTL_MS });
+    // Persist tokens in cookies
+    saveTokens({ accessToken: data.token, refreshToken: data.refreshToken });
 
-    if (!isApproverRole(decodedToken.role)) {
-      return { success: false, message: 'Access denied. This portal is only for approvers.' };
+    const allowedRoles = ["APPROVER", "VERIFIKATOR", "ADMIN"];
+    const userRole = (decodedToken.role || "").toUpperCase();
+    if (!allowedRoles.includes(userRole)) {
+      return {
+        success: false,
+        message: "Access denied. This portal is only for staff.",
+      };
     }
 
     return {
@@ -318,17 +379,22 @@ export async function verifyOtpLogin(params: { identifier: string; otp: string }
         role: decodedToken.role,
       },
     };
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.error("Verify OTP error:", err);
     return {
       success: false,
-      message: extractErrorMessage(err, "OTP verification failed"),
+      message: err?.response?.data?.message || "OTP verification failed",
     };
   }
 }
 
 // Perform token refresh explicitly (normally handled by interceptor)
-export async function refreshAccessToken(): Promise<{ success: boolean; accessToken?: string; refreshToken?: string; message?: string }>{
+export async function refreshAccessToken(): Promise<{
+  success: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  message?: string;
+}> {
   try {
     if (isRefreshExpired()) {
       return { success: false, message: "Refresh token expired" };
@@ -338,24 +404,25 @@ export async function refreshAccessToken(): Promise<{ success: boolean; accessTo
       return { success: false, message: "No refresh token" };
     }
 
-    const resp = await coreApi.post(
-      '/auth/refresh',
-      { refreshToken },
-      { headers: { 'x-skip-auth': 'true' } } // ensure no Authorization header is attached
-    );
+    const resp = await refreshClient.post("/auth/refresh", { refreshToken });
 
-    const { success, data, message } = resp.data || {};
-    if (!success || !data?.token) {
-      return { success: false, message: message || 'Failed to refresh token' };
+    const respData = resp?.data ?? {};
+    const token = respData?.data?.token ?? respData?.token;
+    const newRefresh = respData?.data?.refreshToken ?? respData?.refreshToken;
+    if (!token) {
+      return {
+        success: false,
+        message: respData?.message || "Failed to refresh token",
+      };
     }
 
-    // Save new tokens
-    saveTokens({ accessToken: data.token, refreshToken: data.refreshToken, refreshTtlMs: REFRESH_TTL_MS });
-    return { success: true, accessToken: data.token, refreshToken: data.refreshToken };
-  } catch (err: unknown) {
+    // Save new tokens to cookies
+    saveTokens({ accessToken: token, refreshToken: newRefresh });
+    return { success: true, accessToken: token, refreshToken: newRefresh };
+  } catch (err: any) {
     return {
       success: false,
-      message: extractErrorMessage(err, "Failed to refresh token"),
+      message: err?.response?.data?.message || "Failed to refresh token",
     };
   }
 }
