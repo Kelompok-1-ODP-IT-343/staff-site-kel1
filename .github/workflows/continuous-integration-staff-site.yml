@@ -2,7 +2,7 @@ name: Continuous Integration Staff Site
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
     tags: ["v*", "release-*"]
   workflow_dispatch:
 
