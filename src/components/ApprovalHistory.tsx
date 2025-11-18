@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import coreApi from "@/lib/coreApi";
-import { getCurrentUser } from "@/services/auth";
 import { useRouter } from "next/navigation";
 import { Eye } from "lucide-react";
 
@@ -71,13 +70,7 @@ function formatDate(dateString: string) {
   });
 }
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(amount);
-}
+// formatCurrency removed (unused) to satisfy lint rules
 
 export default function ApprovalHistory() {
   const [sorting, setSorting] = React.useState<SortingState>([]);

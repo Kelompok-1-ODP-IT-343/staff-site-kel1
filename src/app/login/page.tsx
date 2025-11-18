@@ -51,7 +51,7 @@ export default function LoginPage() {
             router.replace("/dashboard");
           }
         }
-      } catch (_) {
+      } catch {
         // Biarkan user tetap di halaman login jika gagal
       }
     }

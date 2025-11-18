@@ -79,7 +79,7 @@ function formatDate(dateString?: string | null) {
 // ========= Component =========
 export default function ApprovalTable() {
   const router = useRouter();
-  const [raw, setRaw] = React.useState<any[]>([]);
+  // raw state removed (unused)
   const [rows, setRows] = React.useState<UnifiedRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -93,7 +93,7 @@ export default function ApprovalTable() {
         const res = await getKPRApplicationsProgress();
         if (res?.success) {
           const list: any[] = Array.isArray(res.data) ? res.data : [];
-          setRaw(list);
+          // raw removed: previously stored raw API response but not used
           // Filter to show only PENDING status applications
           const normalizedList = list.map(normalizeItem);
           const pendingOnly = normalizedList.filter((item) => {

@@ -604,8 +604,8 @@ export default function ApprovalHistoryDetailIntegrated(): JSX.Element {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <DocRow title="Kartu Tanda Penduduk (KTP)" url={customer.ktp || null} onOpen={openDoc} colors={colors} />
-            <DocRow title="Slip Gaji" url={customer.slip || null} onOpen={openDoc} colors={colors} />
+            <DocRow title="Kartu Tanda Penduduk (KTP)" url={customer.ktp || null} onOpen={openDoc} />
+            <DocRow title="Slip Gaji" url={customer.slip || null} onOpen={openDoc} />
           </div>
         </section>
 
@@ -837,7 +837,7 @@ function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail 
 
 // Removed unused helper functions for cleaner bundling
 
-function DocRow({ title, url, onOpen, colors }: { title: string; url: string | null; onOpen: (t: string, u: string | null) => void; colors: any }) {
+function DocRow({ title, url, onOpen }: { title: string; url: string | null; onOpen: (t: string, u: string | null) => void; }) {
   return (
     <div className="border rounded-xl p-5 shadow-sm bg-gray-50 flex items-center justify-between">
       <p className="font-semibold text-gray-800 text-base">{title}</p>

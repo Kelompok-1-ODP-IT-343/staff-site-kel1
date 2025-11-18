@@ -101,7 +101,7 @@ export function clearTokens() {
         deleteCookie(name, { domain, secure: true });
       }
     }
-  } catch (_) {
+  } catch {
     // ignore cookie clearing errors
   }
 }
@@ -122,7 +122,7 @@ export function isRefreshExpired(): boolean {
     if (typeof window === "undefined") return true;
     const token = getCookie("refreshToken");
     return !token;
-  } catch (_) {
+  } catch {
     return true;
   }
 }
