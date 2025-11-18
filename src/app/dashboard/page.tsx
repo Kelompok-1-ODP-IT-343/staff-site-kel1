@@ -41,7 +41,7 @@ export default function Dashboard() {
   }
 
   return (
-    <RoleGuard allowedRoles={['APPROVER', 'VERIFIKATOR']}>
+    <RoleGuard allowedRoles={['APPROVER']}>
       <SidebarProvider>
         <AppSidebar
           activeMenu={activeMenu}
