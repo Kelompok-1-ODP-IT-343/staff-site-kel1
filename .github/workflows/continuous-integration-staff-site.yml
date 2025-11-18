@@ -112,14 +112,11 @@ jobs:
           token: ${{ secrets.ACCESS_TOKEN }}
           path: infra-management
           ref: main
-      
-      - name: Set SHORT SHA
-        run: echo "SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
 
       - name: Update Staff Frontend image tag
         run: |
           cd infra-management/apps/staff-frontend
-          sed -i "s|image: maulanabn99/staff-site-kel1:.*|image: maulanabn99/staff-site-kel1:sha-${{ env.SHORT_SHA }}|g" deployment.yaml
+          sed -i "s|image: maulanabn99/staff-site-kel1:.*|image: maulanabn99/staff-site-kel1:sha-${{github.sha}}|g" deployment.yaml
       - name: Commit and Push Changes
         run: |
           cd infra-management
