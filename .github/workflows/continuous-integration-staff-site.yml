@@ -10,7 +10,6 @@ env:
   IMAGE_NAME: staff-site-kel1
 
 jobs:
-
   prepare_environment:
     name: Prepare Environment
     runs-on: ubuntu-latest
@@ -102,7 +101,7 @@ jobs:
 
   gitops_update:
     name: GitOps Update
-    needs: security_scan
+    needs: [build_and_push_image, security_scan]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout infra-management repository
@@ -116,12 +115,13 @@ jobs:
       - name: Update Staff Frontend image tag
         run: |
           cd infra-management/apps/staff-frontend
-          sed -i "s|image: maulanabn99/staff-site-kel1:.*|image: maulanabn99/staff-site-kel1:sha-${{github.sha}}|g" deployment.yaml
+          sed -i "s|image: maulanabn99/staff-site-kel1:.*|image: maulanabn99/staff-site-kel1:sha-${GITHUB_SHA::7}|g" deployment.yaml
+
       - name: Commit and Push Changes
         run: |
           cd infra-management
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Update staff-site image to sha-${{ github.sha }}"
+          git commit -m "Update staff-site image to sha-${GITHUB_SHA::7}"
           git push origin main
