@@ -116,13 +116,12 @@ jobs:
       - name: Update Staff Frontend image tag
         run: |
           cd infra-management/apps/staff-frontend
-          sed -i "s|image: .*staff-site-kel1.*|image: maulanabn99/staff-site-kel1:${{ needs.build_and_push_image.outputs.IMAGE_SHA }}|g" deployment.yaml
-
+          sed -i "s|maulanabn99/staff-site-kel1:.*|maulanabn99/staff-site-kel1:${{ needs.build_and_push_image.outputs.IMAGE_SHA }}|g"
       - name: Commit and Push Changes
         run: |
           cd infra-management
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Update staff-site image to sha-${{ github.sha }}" || echo "No changes to commit"
+          git commit -m "Update staff-site image to sha-${{ github.sha }}"
           git push origin main
