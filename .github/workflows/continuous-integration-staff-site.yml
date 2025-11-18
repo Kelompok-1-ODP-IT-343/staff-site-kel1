@@ -117,7 +117,7 @@ jobs:
       - name: Update Staff Frontend Image Tag
         run: |
           cd infra-management/apps/staff-frontend
-          sed -i "s|image: .*staff-site-kel1:.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/staff-site-kel1:${{ needs.build_and_push_image.outputs.IMAGE_SHA }}|g" deployment.yaml
+          sed -i "s|image: .*staff-site-kel1.*|image: ${{ secrets.DOCKERHUB_USERNAME }}/staff-site-kel1:${{ needs.build_and_push_image.outputs.IMAGE_SHA }}|g" deployment.yaml
 
       - name: Commit and Push Changes
         run: |
