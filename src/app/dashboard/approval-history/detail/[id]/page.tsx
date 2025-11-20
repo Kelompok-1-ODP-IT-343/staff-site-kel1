@@ -371,11 +371,11 @@ export default function ApprovalHistoryDetailIntegrated(): JSX.Element {
             icon={<User2 className="h-7 w-7" color={colors.blue} />}
             title="Nasabah"
           >
-            <h3 className="font-semibold text-black text-xl">{customer.name}</h3>
-            <div className="text-sm text-gray-600 space-y-0.5">
-              <p>{customer.email}</p>
-              <p>{customer.phone ?? '-'}</p>
-            </div>
+              <h3 className="font-semibold text-black text-xl w-full whitespace-normal break-words">{customer.name}</h3>
+              <div className="text-sm text-gray-600 space-y-0.5 w-full whitespace-normal break-words">
+                <p className="whitespace-normal break-words">{customer.email}</p>
+                <p className="whitespace-normal break-words">{customer.phone ?? '-'}</p>
+              </div>
           </SummaryCard>
 
           {/* Plafon */}
@@ -781,9 +781,9 @@ function SummaryCard({
         </span>
       </div>
 
-      <div className="mt-3 w-full flex-1 flex flex-col items-center justify-center">
-        {children}
-      </div>
+      <div className="mt-3 w-full flex-1 flex flex-col items-center justify-center break-words">
+          {children}
+        </div>
     </div>
   );
 }
