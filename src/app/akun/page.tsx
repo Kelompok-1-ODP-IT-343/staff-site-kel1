@@ -69,6 +69,58 @@ interface UserProfile {
 
 type Section = "settings" | "notifications" | "help";
 
+const COLORS = {
+  teal: "#3FD8D4",
+  gray: "#757575",
+  orange: "#FF8500",
+  lime: "#DDEE59",
+};
+
+function getAvatarColor(name: string): string {
+  const colors = [
+    COLORS.teal,
+    COLORS.orange,
+    "#0B63E5",
+    COLORS.lime,
+    "#6C63FF",
+    "#00C49F",
+  ];
+  const index = name
+    .split("")
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length;
+  return colors[index];
+}
+
+function generateInisial(name: string): string {
+  const n = (name || "").trim();
+  if (!n) return "U";
+  const parts = n.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function toTitleCase(text: string): string {
+  const s = (text || "").toLowerCase();
+  return s
+    .split(/\s+/)
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : ""))
+    .join(" ");
+}
+
+function Avatar({ name, size = 40, className }: { name: string; size?: number; className?: string }) {
+  const bg = getAvatarColor(name || "U");
+  const initials = generateInisial(name || "U");
+  const fontSize = Math.max(Math.floor(size / 3.2), 11);
+  return (
+    <div
+      className={`flex items-center justify-center rounded-full text-white font-semibold ${className ?? ""}`}
+      style={{ width: size, height: size, backgroundColor: bg, fontSize }}
+    >
+      {initials}
+    </div>
+  );
+}
+
 // Client component that uses search params
 function AkunContent() {
   const router = useRouter();
@@ -136,20 +188,13 @@ function AkunContent() {
           <aside className="md:col-span-4 lg:col-span-3">
             <div className="rounded-2xl bg-white border shadow-sm overflow-hidden">
               <div className="flex items-center gap-3 px-5 py-5 border-b">
-                <div className="relative w-12 h-12 rounded-full overflow-hidden">
-                  <Image
-                    src="/images/avatars/cecilion.png"
-                    alt={loading ? "Loading..." : userProfile?.fullName || "User"}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
+                <Avatar name={loading ? "User" : userProfile?.fullName || "User"} size={40} className="flex-shrink-0" />
                 <div>
-                  <h3 className="font-semibold text-gray-900 leading-tight">
+                  <div className="font-semibold text-gray-900 leading-tight text-base">
                     {loading ? "Loading..." : userProfile?.fullName || "User"}
-                  </h3>
-                  <p className="text-xs text-gray-500 -mt-0.5">
-                    {loading ? "Loading..." : userProfile?.roleName || "User"}
+                  </div>
+                  <p className="text-[12px] text-gray-500 -mt-0.5">
+                    {loading ? "Loading..." : toTitleCase(userProfile?.roleName || "User")}
                   </p>
                 </div>
               </div>
