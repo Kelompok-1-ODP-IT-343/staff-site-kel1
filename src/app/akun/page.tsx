@@ -382,6 +382,16 @@ function SettingsContent({ userProfile, loading }: {
                 </div>
               )}
               <div className="grid gap-3">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={true}
+                />
+              </div>
+
+              <div className="grid gap-3">
                 <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
@@ -399,16 +409,6 @@ function SettingsContent({ userProfile, loading }: {
                   value={email}
                   onChange={() => {}}
                   disabled
-                />
-              </div>
-
-              <div className="grid gap-3">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  disabled={loading || saving}
                 />
               </div>
 
