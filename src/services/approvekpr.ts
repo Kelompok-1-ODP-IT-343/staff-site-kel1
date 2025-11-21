@@ -34,7 +34,7 @@ export async function getAllPengajuanByUser() {
 // 🔹 Ambil semua pengajuan dengan status selain SUBMITTED
 export async function getAllNonSubmittedPengajuan() {
   try {
-    const res = await coreApi.get("/kpr-applications/admin/history", {
+    const res = await coreApi.get("/kpr-applications/verifikator/history", {
     })
 
     const json = res.data
