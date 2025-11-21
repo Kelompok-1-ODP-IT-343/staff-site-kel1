@@ -16,7 +16,6 @@ function UnsupportedDeviceContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const from = searchParams.get('from') || '/dashboard'
-
   useEffect(() => {
     const checkAndRedirect = () => {
       if (isLikelyDesktopClient()) {
