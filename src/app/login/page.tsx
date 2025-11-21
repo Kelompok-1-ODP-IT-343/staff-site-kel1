@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InputOTP, InputOTPSlot } from '@/components/ui/input-otp';
+import { Skeleton } from '@/components/ui/skeleton';
 import React from "react";
 
 export default function LoginPage() {
@@ -31,7 +33,10 @@ export default function LoginPage() {
   const [otp, setOtp] = useState("");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-
+  const lastOtpAttempt = React.useRef('');
+  const [skeletonVisible, setSkeletonVisible] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  
   // Jika sudah login (punya token valid) atau bisa refresh, langsung mantul ke dashboard
   // Hindari user melihat halaman login saat sesi masih aktif.
   React.useEffect(() => {
@@ -51,19 +56,17 @@ export default function LoginPage() {
             router.replace("/dashboard");
           }
         }
-      } catch {
+      } catch (_) {
         // Biarkan user tetap di halaman login jika gagal
       }
     }
     void checkAndRedirect();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
 
     if (!identifier || !password) {
@@ -75,85 +78,110 @@ export default function LoginPage() {
     try {
       const res = await initiateLogin({ identifier, password });
       if (!res.success) {
-        setError(
-          res.message || "Failed to login. Please check your credentials.",
-        );
+        setError(res.message || "Failed to login. Please check your credentials.",);
         return;
       }
       if (res.requiresOtp) {
         setSavedIdentifier(identifier);
-        setStep("otp");
-        setOtp("");
+        setStep('otp');
+        setOtp('');
       } else {
         // Logged in without OTP (fallback behavior)
         router.push("/dashboard");
       }
     } catch (err: any) {
-      console.error("Login error:", err);
+      console.error('Login error:', err);
       if (err?.response?.status === 401) {
-        setError(
-          "Invalid credentials. Please check your Staff ID and password.",
-        );
+        setError('Invalid credentials. Please check your Developer ID and password.');
       } else if (err?.response?.status === 429) {
-        setError("Too many login attempts. Please try again later.");
+        setError('Too many login attempts. Please try again later.');
       } else if (!navigator.onLine) {
-        setError(
-          "No internet connection. Please check your network connection.",
-        );
+        setError('No internet connection. Please check your network connection.');
       } else {
-        setError(
-          err?.response?.data?.message ||
-            "An error occurred while logging in. Please try again.",
-        );
+        setError(err?.response?.data?.message || 'An error occurred while logging in. Please try again.');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (!savedIdentifier) {
-      setError("Missing identifier. Please restart login.");
-      setStep("credentials");
-      return;
+  React.useEffect(() => {
+    const clean = otp.replace(/\D/g, '');
+    if (!savedIdentifier) return;
+    if (clean.length === 6 && !loading && lastOtpAttempt.current !== clean) {
+      lastOtpAttempt.current = clean;
+      (async () => {
+        setLoading(true);
+        setError('');
+        try {
+          const res = await verifyOtpLogin({ identifier: savedIdentifier, otp: clean });
+          if (res.success) {
+            setRedirecting(true);
+            setSkeletonVisible(true);
+            const wait = 600;
+            setTimeout(() => {
+              setSkeletonVisible(false);
+              router.push('/dashboard');
+            }, wait);
+          } else {
+            setSkeletonVisible(false);
+            setError(res.message || 'Invalid OTP.');
+          }
+        } catch (err: any) {
+          console.error('Verify OTP error:', err);
+          setSkeletonVisible(false);
+          setError(err?.response?.data?.message || 'Failed to verify OTP.');
+        } finally {
+          setLoading(false);
+        }
+      })();
     }
-    if (!otp || otp.length !== 6) {
-      setError("Please enter the 6-digit OTP.");
-      return;
-    }
+  }, [otp, savedIdentifier, loading, router]);
 
-    setLoading(true);
-    try {
-      const res = await verifyOtpLogin({ identifier: savedIdentifier, otp });
-      if (res.success) {
-        router.push("/dashboard");
-      } else {
-        setError(res.message || "Invalid OTP.");
-      }
-    } catch (err: any) {
-      console.error("Verify OTP error:", err);
-      setError(err?.response?.data?.message || "Failed to verify OTP.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleVerifyOtp = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setError("");
+  //   if (!savedIdentifier) {
+  //     setError("Missing identifier. Please restart login.");
+  //     setStep("credentials");
+  //     return;
+  //   }
+  //   if (!otp || otp.length !== 6) {
+  //     setError("Please enter the 6-digit OTP.");
+  //     return;
+  //   }
+
+  //   setLoading(true);
+  //   try {
+  //     const res = await verifyOtpLogin({ identifier: savedIdentifier, otp });
+  //     if (res.success) {
+  //       router.push("/dashboard");
+  //     } else {
+  //       setError(res.message || "Invalid OTP.");
+  //     }
+  //   } catch (err: any) {
+  //     console.error("Verify OTP error:", err);
+  //     setError(err?.response?.data?.message || "Failed to verify OTP.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   return (
-    <div className="akun min-h-screen flex">
+    <div className="akun min-h-screen flex flex-col md:flex-row">
+
       {/* === LEFT SIDE === */}
       <div className="flex-1 bg-white flex items-center justify-center p-8">
         <img
           src="/logo-satuatap.png"
           alt="Satu Atap Logo"
-          className="w-[500px] h-auto object-contain"
+          className="w-full max-w-[420px] h-auto object-contain"
         />
       </div>
 
       {/* === RIGHT SIDE === */}
       <div className="flex-1 bg-gray-50 flex items-center justify-center p-8">
-        <Card className="w-full max-w-sm shadow-xl border border-gray-200">
+        <Card className={`w-full max-w-sm shadow-xl border border-gray-200 ${redirecting ? 'opacity-0 transition-opacity duration-300' : ''}`}>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-gray-900">
               BNI KPR - Satu Atap
@@ -168,6 +196,7 @@ export default function LoginPage() {
           <CardContent>
             {step === "credentials" ? (
               <form onSubmit={handleLogin} className="flex flex-col gap-6">
+              
                 {error && (
                   <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
                     {error}
@@ -208,33 +237,35 @@ export default function LoginPage() {
                 </Button>
               </form>
             ) : (
-              <form onSubmit={handleVerifyOtp} className="flex flex-col gap-6">
+              <form className="flex flex-col gap-6">
+
                 {error && (
                   <div className="p-3 text-sm text-red-500 bg-red-50 border border-red-200 rounded-md">
                     {error}
                   </div>
                 )}
-                <div className="grid gap-2">
+                <div className="grid gap-2 relative">
                   <Label htmlFor="otp">OTP Code</Label>
-                  <Input
-                    id="otp"
-                    name="otp"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
+                  <InputOTP
+                    aria-label="One-Time Password"
                     maxLength={6}
-                    placeholder="Enter 6-digit OTP"
                     value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                    }
-                    required
+                    onChange={(code) => setOtp(code.replace(/\D/g, '').slice(0, 6))}
                     disabled={loading}
-                  />
-                  <p className="text-xs text-gray-500">
-                    We sent an OTP to the contact registered for{" "}
-                    {savedIdentifier}.
-                  </p>
+                    containerClassName="justify-center gap-3"
+                    className="mx-auto"
+                  >
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTP>
+                  {skeletonVisible && (
+                    <Skeleton className="absolute inset-0 z-10 rounded-md" />
+                  )}
+                  <p className="text-xs text-gray-500 text-center">We sent an OTP to the contact registered for {savedIdentifier}.</p>
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -249,13 +280,6 @@ export default function LoginPage() {
                     }}
                   >
                     Back
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 bg-[#3FD8D4] hover:bg-[#2BB8B4] text-white font-semibold"
-                  >
-                    {loading ? "Verifying..." : "Verify OTP"}
                   </Button>
                 </div>
               </form>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import DeviceGuard from "@/app/components/DeviceGuard";
 
 // Font setup
 const geist = Geist({
@@ -37,6 +38,8 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          {/* Guard perangkat: redirect ke /unsupported-device bila UA mobile atau layar < 1024px */}
+          <DeviceGuard />
           {children}
         </ThemeProvider>
       </body>
