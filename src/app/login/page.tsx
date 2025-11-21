@@ -250,7 +250,11 @@ export default function LoginPage() {
                     aria-label="One-Time Password"
                     maxLength={6}
                     value={otp}
-                    onChange={(code) => setOtp(code.replace(/\D/g, '').slice(0, 6))}
+                    onChange={(code) => {
+                      if (typeof code === "string") {
+                        setOtp(code.replace(/\D/g, '').slice(0, 6));
+                      }
+                    }}
                     disabled={loading}
                     containerClassName="justify-center gap-3"
                     className="mx-auto"
