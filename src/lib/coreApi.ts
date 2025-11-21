@@ -10,14 +10,14 @@ const resolveBaseUrl = (envValue: string | undefined, fallback: string) => {
 // Build core API base from host + "/api/v1"
 const CORE_HOST = resolveBaseUrl(
   process.env.NEXT_PUBLIC_API_BASE_URL,
-  "https://satuatap.my.id",
+  "https://satuatap.my.id"
 );
 const CORE_API_BASE = `${CORE_HOST}/api/v1`;
 
 // Credit score base: use /api/v2. If env includes /api/v*, force v2; else append /api/v2.
 const resolveCreditApiV2Base = (
   envValue: string | undefined,
-  hostFallback: string,
+  hostFallback: string
 ) => {
   const raw = (envValue && envValue.trim()) || hostFallback;
   const clean = raw.replace(/\/+$/, "");
@@ -29,7 +29,7 @@ const resolveCreditApiV2Base = (
 
 const CREDIT_SCORE_API_BASE = resolveCreditApiV2Base(
   process.env.NEXT_PUBLIC_CREDIT_SCORE_API_URL,
-  CORE_HOST,
+  "https://ai.satuatap.my.id"
 );
 
 // Axios instance untuk seluruh request ke API Satu Atap
@@ -79,14 +79,18 @@ function setCookieMaxAge(name: string, value: string, maxAgeSeconds: number) {
   const isHttps =
     typeof window !== "undefined" && window.location.protocol === "https:";
   const encoded = encodeURIComponent(value);
-  document.cookie = `${name}=${encoded}; max-age=${maxAgeSeconds}; path=/; ${isHttps ? "secure; " : ""}SameSite=Lax`;
+  document.cookie = `${name}=${encoded}; max-age=${maxAgeSeconds}; path=/; ${
+    isHttps ? "secure; " : ""
+  }SameSite=Lax`;
 }
 
 function deleteCookie(name: string) {
   if (typeof document === "undefined") return;
   const isHttps =
     typeof window !== "undefined" && window.location.protocol === "https:";
-  document.cookie = `${name}=; max-age=0; path=/; ${isHttps ? "secure; " : ""}SameSite=Lax`;
+  document.cookie = `${name}=; max-age=0; path=/; ${
+    isHttps ? "secure; " : ""
+  }SameSite=Lax`;
 }
 
 // Cleanup legacy cookies that are no longer used
@@ -101,7 +105,7 @@ try {
 // Interceptor: sisipkan Authorization jika ada token di cookie
 coreApi.interceptors.request.use((config) => {
   try {
-      if (typeof window !== "undefined") {
+    if (typeof window !== "undefined") {
       const token = getCookie("token");
       if (token) {
         const authHeader = `Bearer ${token}`;
@@ -122,7 +126,7 @@ coreApi.interceptors.request.use((config) => {
 // Ensure Credit Score API also attaches Authorization from cookie
 creditScoreApi.interceptors.request.use((config) => {
   try {
-      if (typeof window !== "undefined") {
+    if (typeof window !== "undefined") {
       const token = getCookie("token");
       if (token) {
         const authHeader = `Bearer ${token}`;
@@ -140,7 +144,10 @@ creditScoreApi.interceptors.request.use((config) => {
 
 // Flag to prevent multiple refresh token requests
 let isRefreshing = false;
-let failedQueue: { resolve: (token: string | null) => void; reject: (err: any) => void }[] = [];
+let failedQueue: {
+  resolve: (token: string | null) => void;
+  reject: (err: any) => void;
+}[] = [];
 
 const processQueue = (error: any, token: string | null = null) => {
   failedQueue.forEach((prom) => {
@@ -173,7 +180,7 @@ coreApi.interceptors.response.use(
           if (originalRequest.headers instanceof AxiosHeaders) {
             (originalRequest.headers as AxiosHeaders).set(
               "Authorization",
-              `Bearer ${token}`,
+              `Bearer ${token}`
             );
           } else {
             originalRequest.headers = originalRequest.headers || {};
@@ -219,7 +226,7 @@ coreApi.interceptors.response.use(
           if (originalRequest.headers instanceof AxiosHeaders) {
             (originalRequest.headers as AxiosHeaders).set(
               "Authorization",
-              `Bearer ${token}`,
+              `Bearer ${token}`
             );
           } else {
             originalRequest.headers = originalRequest.headers || {};
@@ -258,7 +265,7 @@ coreApi.interceptors.response.use(
     // No fallback logout for 401/403 here; only refresh failure triggers logout.
 
     return Promise.reject(error);
-  },
+  }
 );
 
 // Apply same refresh logic for creditScoreApi so requests retry after refresh
@@ -278,7 +285,7 @@ creditScoreApi.interceptors.response.use(
           if (originalRequest.headers instanceof AxiosHeaders) {
             (originalRequest.headers as AxiosHeaders).set(
               "Authorization",
-              `Bearer ${token}`,
+              `Bearer ${token}`
             );
           } else {
             originalRequest.headers = originalRequest.headers || {};
@@ -312,7 +319,7 @@ creditScoreApi.interceptors.response.use(
           if (originalRequest.headers instanceof AxiosHeaders) {
             (originalRequest.headers as AxiosHeaders).set(
               "Authorization",
-              `Bearer ${token}`,
+              `Bearer ${token}`
             );
           } else {
             originalRequest.headers = originalRequest.headers || {};
@@ -342,7 +349,7 @@ creditScoreApi.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  },
+  }
 );
 
 export default coreApi;
@@ -366,7 +373,7 @@ export const updateUserProfile = async (
     username: string;
     phone: string;
     companyName?: string;
-  },
+  }
 ) => {
   const id = String(userId || 1);
   try {
@@ -400,7 +407,7 @@ export const getKPRApplicationsProgress = async () => {
   try {
     // Verifikator endpoint sesuai spesifikasi backend
     const response = await coreApi.get(
-      "/kpr-applications/verifikator/progress",
+      "/kpr-applications/verifikator/progress"
     );
     return response.data;
   } catch (error) {
@@ -421,7 +428,7 @@ export const getKPRApplicationDetail = async (applicationId: string) => {
 
 export const approveKPRApplication = async (
   applicationId: string,
-  approvalNotes: string,
+  approvalNotes: string
 ) => {
   try {
     const response = await coreApi.post(`/approval/verifikator`, {
@@ -438,7 +445,7 @@ export const approveKPRApplication = async (
 
 export const rejectKPRApplication = async (
   applicationId: string,
-  rejectionReason: string,
+  rejectionReason: string
 ) => {
   try {
     const response = await coreApi.post(`/approval/verifikator`, {
@@ -486,7 +493,7 @@ export const getCreditRecommendation = async (applicationId: string) => {
 
     const response = await creditScoreApi.post(
       `/recommendation-system`,
-      requestBody,
+      requestBody
     );
     return response.data;
   } catch (error) {
