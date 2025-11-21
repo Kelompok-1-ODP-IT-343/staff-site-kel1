@@ -1,5 +1,5 @@
 "use client"
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 function isLikelyDesktopClient(): boolean {
@@ -12,7 +12,7 @@ function isLikelyDesktopClient(): boolean {
   return !isMobileUa && wideEnough
 }
 
-export default function UnsupportedDevice() {
+function UnsupportedDeviceContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const from = searchParams.get('from') || '/dashboard'
@@ -60,3 +60,21 @@ export default function UnsupportedDevice() {
   )
 }
 
+function UnsupportedDeviceFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#3FD8D4] via-white to-[#DDEE59] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Memuat…</h1>
+        <p className="text-[#757575]">Mengecek perangkat Anda.</p>
+      </div>
+    </div>
+  )
+}
+
+export default function UnsupportedDevice() {
+  return (
+    <Suspense fallback={<UnsupportedDeviceFallback />}>
+      <UnsupportedDeviceContent />
+    </Suspense>
+  )
+}
