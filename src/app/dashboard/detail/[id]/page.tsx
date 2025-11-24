@@ -1056,23 +1056,28 @@ function toHtmlWithBold(md: string | undefined | null): string {
 
 function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail {
   const ui = d.userInfo ?? {};
-  const ktpDoc  = d.documents?.find(x => /KTP|IDENTITY/i.test(x.documentType ?? ''));
-  const slipDoc = d.documents?.find(x => /SLIP|GAJI|INCOME/i.test(x.documentType ?? ''));
+  const slipDocIdx = d.documents?.[0];
+  const ktpDocIdx = d.documents?.[1];
+  const slipDoc = (slipDocIdx && /SLIP|GAJI|INCOME/i.test(slipDocIdx.documentType ?? ''))
+    ? slipDocIdx
+    : d.documents?.find(x => /SLIP|GAJI|INCOME/i.test(x.documentType ?? ''));
+  const ktpDoc  = (ktpDocIdx && /KTP|IDENTITY/i.test(ktpDocIdx.documentType ?? ''))
+    ? ktpDocIdx
+    : d.documents?.find(x => /KTP|IDENTITY/i.test(x.documentType ?? ''));
 
   const PUBLIC_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://satuatap.my.id").replace(/\/$/, "");
 
   function normalizeFileUrl(fp?: string | null) {
     if (!fp) return null;
     try {
-      // Absolute URL -> replace host + strip /api/v1 if present
+      // Absolute URL: keep as-is (includes query params and /api/v1 when present)
       if (/^https?:\/\//i.test(fp)) {
-        const u = new URL(fp);
-        const newPath = u.pathname.replace(/^\/api\/v1/, "");
-        return `${new URL(PUBLIC_BASE).origin}${newPath}${u.search}`;
+        return fp;
       }
-      // Relative path (may start with /api/v1) -> prefix with public base
-      const path = fp.replace(/^\/api\/v1/, "");
-      return `${new URL(PUBLIC_BASE).origin}${path}`;
+      // Relative path: preserve leading "/api/v1" if present and prefix with public base origin
+      const origin = new URL(PUBLIC_BASE).origin;
+      const path = fp.startsWith('/') ? fp : `/${fp}`;
+      return `${origin}${path}`;
     } catch (e) {
       return fp;
     }
