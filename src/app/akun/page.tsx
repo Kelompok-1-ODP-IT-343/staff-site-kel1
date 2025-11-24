@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/tabs"
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { logout } from "@/services/auth";
 import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import {
@@ -153,7 +154,14 @@ function AkunContent() {
     fetchUserProfile();
   }, []);
 
-  const goLogout = () => router.push("/");
+  const goLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
+    router.push("/login");
+  };
   const goBack = () => router.push("/dashboard");
 
   // Removed local `formatCurrency` and `formatPhoneNumber` helpers — not used in this component.
