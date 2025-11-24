@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   XCircle,
-  User2, Wallet, FileText, Eye, Settings2
+  User2, Wallet, FileText, Eye, Settings2, FileDown
 } from 'lucide-react';
 import ViewDocumentDialog from '@/components/dialogs/ViewDocumentDialog';
 import ViewApprovalDetails from '@/components/dialogs/ViewApprovalDetails';
@@ -841,13 +841,32 @@ function DocRow({ title, url, onOpen }: { title: string; url: string | null; onO
   return (
     <div className="border rounded-xl p-5 shadow-sm bg-gray-50 flex items-center justify-between">
       <p className="font-semibold text-gray-800 text-base">{title}</p>
-      <Button
-        onClick={() => onOpen(title, url)}
-        variant="outline"
-        className="text-[#0B63E5] border-[#0B63E5]/60 hover:bg-[#0B63E5]/10 font-semibold shadow-sm"
-      >
-        <Eye className="mr-2 h-4 w-4" /> Lihat
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={() => onOpen(title, url)}
+          variant="outline"
+          className="text-[#0B63E5] border-[#0B63E5]/60 hover:bg-[#0B63E5]/10 font-semibold shadow-sm"
+        >
+          <Eye className="mr-2 h-4 w-4" /> Lihat
+        </Button>
+        {url ? (
+          <a
+            href={url}
+            download
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-[#0B63E5]/60 text-[#0B63E5] hover:bg-[#0B63E5]/10 text-sm font-semibold transition"
+          >
+            <FileDown className="h-4 w-4" /> Download
+          </a>
+        ) : (
+          <button
+            disabled
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-200 text-gray-400 text-sm font-semibold"
+            title="Tidak ada file"
+          >
+            <FileDown className="h-4 w-4" /> Download
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   Check, X, XCircle,
-  User2, Wallet, BarChart3, FileText, Eye, Settings2,
+  User2, Wallet, BarChart3, FileText, Eye, Settings2, FileDown,
   CheckCircle2, AlertCircle, TrendingUp, Lightbulb
 } from 'lucide-react';
 import ViewDocumentDialog from '@/components/dialogs/ViewDocumentDialog';
@@ -1056,9 +1056,27 @@ function toHtmlWithBold(md: string | undefined | null): string {
 
 function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail {
   const ui = d.userInfo ?? {};
-
   const ktpDoc  = d.documents?.find(x => /KTP|IDENTITY/i.test(x.documentType ?? ''));
   const slipDoc = d.documents?.find(x => /SLIP|GAJI|INCOME/i.test(x.documentType ?? ''));
+
+  const PUBLIC_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://satuatap.my.id").replace(/\/$/, "");
+
+  function normalizeFileUrl(fp?: string | null) {
+    if (!fp) return null;
+    try {
+      // Absolute URL -> replace host + strip /api/v1 if present
+      if (/^https?:\/\//i.test(fp)) {
+        const u = new URL(fp);
+        const newPath = u.pathname.replace(/^\/api\/v1/, "");
+        return `${new URL(PUBLIC_BASE).origin}${newPath}${u.search}`;
+      }
+      // Relative path (may start with /api/v1) -> prefix with public base
+      const path = fp.replace(/^\/api\/v1/, "");
+      return `${new URL(PUBLIC_BASE).origin}${path}`;
+    } catch (e) {
+      return fp;
+    }
+  }
 
   return {
     id: String((ui as any).userId ?? d.id ?? d.applicationId ?? id),
@@ -1092,8 +1110,8 @@ function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail 
     credit_status: (d as any).credit_status ?? 'Lancar',
     credit_score: (d as any).credit_score ?? '01',
 
-    ktp: ktpDoc?.filePath ?? null,
-    slip: slipDoc?.filePath ?? null,
+    ktp: normalizeFileUrl(ktpDoc?.filePath) ?? null,
+    slip: normalizeFileUrl(slipDoc?.filePath) ?? null,
   };
 }
 
@@ -1103,13 +1121,32 @@ function DocRow({ title, url, onOpen }: { title: string; url: string | null; onO
   return (
     <div className="border rounded-xl p-5 shadow-sm bg-gray-50 flex items-center justify-between">
       <p className="font-semibold text-gray-800 text-base">{title}</p>
-      <Button
-        onClick={() => onOpen(title, url)}
-        variant="outline"
-        className="text-[#0B63E5] border-[#0B63E5]/60 hover:bg-[#0B63E5]/10 font-semibold shadow-sm"
-      >
-        <Eye className="mr-2 h-4 w-4" /> Lihat
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={() => onOpen(title, url)}
+          variant="outline"
+          className="text-[#0B63E5] border-[#0B63E5]/60 hover:bg-[#0B63E5]/10 font-semibold shadow-sm"
+        >
+          <Eye className="mr-2 h-4 w-4" /> Lihat
+        </Button>
+        {url ? (
+          <a
+            href={url}
+            download
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-[#0B63E5]/60 text-[#0B63E5] hover:bg-[#0B63E5]/10 text-sm font-semibold transition"
+          >
+            <FileDown className="h-4 w-4" /> Download
+          </a>
+        ) : (
+          <button
+            disabled
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-200 text-gray-400 text-sm font-semibold"
+            title="Tidak ada file"
+          >
+            <FileDown className="h-4 w-4" /> Download
+          </button>
+        )}
+      </div>
     </div>
   );
 }
