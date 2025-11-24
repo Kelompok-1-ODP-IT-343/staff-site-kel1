@@ -794,9 +794,14 @@ function SummaryCard({
 
 function mapToCustomerDetail(id: string, d: KPRApplicationData): CustomerDetail {
   const ui = d.userInfo ?? {};
-
-  const ktpDoc  = d.documents?.find(x => /KTP|IDENTITY/i.test(x.documentType ?? ''));
-  const slipDoc = d.documents?.find(x => /SLIP|GAJI|INCOME/i.test(x.documentType ?? ''));
+  const slipDocIdx = d.documents?.[0];
+  const ktpDocIdx = d.documents?.[1];
+  const slipDoc = (slipDocIdx && /SLIP|GAJI|INCOME/i.test(slipDocIdx.documentType ?? ''))
+    ? slipDocIdx
+    : d.documents?.find(x => /SLIP|GAJI|INCOME/i.test(x.documentType ?? ''));
+  const ktpDoc  = (ktpDocIdx && /KTP|IDENTITY/i.test(ktpDocIdx.documentType ?? ''))
+    ? ktpDocIdx
+    : d.documents?.find(x => /KTP|IDENTITY/i.test(x.documentType ?? ''));
 
   return {
     id: String((ui as any).userId ?? d.id ?? d.applicationId ?? id),

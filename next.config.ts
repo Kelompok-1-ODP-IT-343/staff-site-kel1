@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "satuatap.my.id",
+        port: "",
+        pathname: "/**",
+      },
     ],
   },
   // agar build tidak gagal karena lint errors
